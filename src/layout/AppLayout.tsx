@@ -1,16 +1,41 @@
-import React, { useState } from 'react';
-import { Outlet, useLocation, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { AddEmployeeModal } from '../components/employees/AddEmployeeModal';
 import { useHrms } from '../store/HrmsContext';
+
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  
   const location = useLocation();
-  const { isLive } = useHrms();
+  const navigate = useNavigate();
+  const { isLive, currentUser, isLoading } = useHrms();
+
+  useEffect(() => {
+    if (!isLoading && !currentUser) {
+      navigate('/login');
+    }
+  }, [currentUser, isLoading, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+          <p className="text-xs text-content-faint">Initializing HR Workspace...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return null;
+  }
+
   return (
     <div className="flex min-h-screen w-full bg-canvas">
       {/* Desktop sidebar */}
@@ -116,6 +141,6 @@ export function AppLayout() {
       </div>
 
       <AddEmployeeModal open={addOpen} onClose={() => setAddOpen(false)} />
-    </div>);
-
+    </div>
+  );
 }

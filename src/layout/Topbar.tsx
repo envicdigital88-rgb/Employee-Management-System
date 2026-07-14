@@ -8,36 +8,41 @@ import {
   PlusIcon,
   LogOutIcon,
   UserIcon,
-  SettingsIcon } from
-'lucide-react';
+  SettingsIcon 
+} from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { useHrms } from '../store/HrmsContext';
 import { fullName } from '../data/employees';
+
 export function Topbar({
   onOpenMobileNav,
   onAddEmployee
-
-
-
-}: {onOpenMobileNav: () => void;onAddEmployee: () => void;}) {
+}: {
+  onOpenMobileNav: () => void;
+  onAddEmployee: () => void;
+}) {
   const navigate = useNavigate();
-  const { employees } = useHrms();
+  const { employees, currentUser, isAdmin, logout } = useHrms();
+  
   const [query, setQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+
   const results =
-  query.trim().length > 0 ?
-  employees.
-  filter(
-    (e) =>
-    fullName(e).toLowerCase().includes(query.toLowerCase()) ||
-    e.role.toLowerCase().includes(query.toLowerCase()) ||
-    e.id.toLowerCase().includes(query.toLowerCase())
-  ).
-  slice(0, 6) :
-  [];
+    query.trim().length > 0 ?
+    employees.filter(
+      (e) =>
+      fullName(e).toLowerCase().includes(query.toLowerCase()) ||
+      e.role.toLowerCase().includes(query.toLowerCase()) ||
+      e.id.toLowerCase().includes(query.toLowerCase())
+    ).slice(0, 6) : [];
+
+  const currentUserFullName = currentUser ? fullName(currentUser) : 'Guest User';
+  const currentUserRole = currentUser ? currentUser.role : 'Guest';
+  const currentUserAvatar = currentUser?.avatarUrl || '';
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-canvas/80 px-4 backdrop-blur-md sm:px-6">
       <button
@@ -107,15 +112,17 @@ export function Topbar({
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={onAddEmployee}
-          className="hidden sm:inline-flex">
-          
-          <PlusIcon className="h-4 w-4" />
-          Add employee
-        </Button>
+        {isAdmin && (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onAddEmployee}
+            className="hidden sm:inline-flex">
+            
+            <PlusIcon className="h-4 w-4" />
+            Add employee
+          </Button>
+        )}
 
         <div className="relative">
           <button
@@ -127,42 +134,47 @@ export function Topbar({
             aria-label="Notifications">
             
             <BellIcon className="h-5 w-5" />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent ring-2 ring-canvas" />
+            {isAdmin && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent ring-2 ring-canvas" />}
           </button>
           <AnimatePresence>
-            {notifOpen &&
-            <motion.div
-              initial={{
-                opacity: 0,
-                y: 6
-              }}
-              animate={{
-                opacity: 1,
-                y: 0
-              }}
-              exit={{
-                opacity: 0,
-                y: 6
-              }}
-              className="absolute right-0 top-12 z-40 w-72 rounded-xl border border-line bg-surface-raised p-2 shadow-panel">
-              
-                <p className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-content-faint">
-                  Notifications
-                </p>
-                {[
-              '3 leave requests await approval',
-              'June payroll run is ready to finalize',
-              '2 reviews due this week'].
-              map((n, i) =>
-              <div
-                key={i}
-                className="rounded-lg px-2 py-2 text-sm text-content-muted hover:bg-white/5">
+            {notifOpen && (
+              <motion.div
+                initial={{
+                  opacity: 0,
+                  y: 6
+                }}
+                animate={{
+                  opacity: 1,
+                  y: 0
+                }}
+                exit={{
+                  opacity: 0,
+                  y: 6
+                }}
+                className="absolute right-0 top-12 z-40 w-72 rounded-xl border border-line bg-surface-raised p-2 shadow-panel">
                 
-                    {n}
-                  </div>
-              )}
+                  <p className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-content-faint">
+                    Notifications
+                  </p>
+                  {isAdmin ? (
+                    [
+                      '3 leave requests await approval',
+                      'June payroll run is ready to finalize',
+                      '2 reviews due this week'
+                    ].map((n, i) =>
+                      <div
+                        key={i}
+                        className="rounded-lg px-2 py-2 text-sm text-content-muted hover:bg-white/5">
+                        {n}
+                      </div>
+                    )
+                  ) : (
+                    <div className="px-2 py-4 text-xs text-content-faint text-center">
+                      No new notifications.
+                    </div>
+                  )}
               </motion.div>
-            }
+            )}
           </AnimatePresence>
         </div>
 
@@ -176,12 +188,12 @@ export function Topbar({
             aria-label="Account menu">
             
             <Avatar
-              src="https://api.dicebear.com/7.x/notionists/svg?seed=Hannah%20Lee&backgroundColor=14171c&radius=50"
-              name="Hannah Lee"
+              src={currentUserAvatar}
+              name={currentUserFullName}
               size="sm" />
             
             <span className="hidden text-sm font-medium text-content md:block">
-              Hannah Lee
+              {currentUserFullName}
             </span>
           </button>
           <AnimatePresence>
@@ -202,34 +214,45 @@ export function Topbar({
               className="absolute right-0 top-12 z-40 w-52 rounded-xl border border-line bg-surface-raised p-1.5 shadow-panel">
               
                 <div className="px-3 py-2">
-                  <p className="text-sm font-semibold text-content">
-                    Hannah Lee
+                  <p className="text-sm font-semibold text-content truncate">
+                    {currentUserFullName}
                   </p>
-                  <p className="text-xs text-content-muted">
-                    Head of People · Admin
+                  <p className="text-xs text-content-muted truncate">
+                    {currentUserRole} · {isAdmin ? 'Admin' : 'Employee'}
                   </p>
                 </div>
                 <div className="my-1 h-px bg-line" />
-                {[
-              {
-                label: 'My profile',
-                icon: UserIcon
-              },
-              {
-                label: 'Settings',
-                icon: SettingsIcon
-              }].
-              map((m) =>
-              <button
-                key={m.label}
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-content-muted transition-colors hover:bg-white/5 hover:text-content">
-                
-                    <m.icon className="h-4 w-4" />
-                    {m.label}
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    navigate('/profile');
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-content-muted transition-colors hover:bg-white/5 hover:text-content"
+                >
+                  <UserIcon className="h-4 w-4" />
+                  My profile
+                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate('/settings');
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-content-muted transition-colors hover:bg-white/5 hover:text-content"
+                  >
+                    <SettingsIcon className="h-4 w-4" />
+                    Settings
                   </button>
-              )}
+                )}
                 <div className="my-1 h-px bg-line" />
-                <button className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-500/10">
+                <button 
+                  onClick={() => {
+                    setMenuOpen(false);
+                    logout();
+                    navigate('/login');
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-500/10"
+                >
                   <LogOutIcon className="h-4 w-4" />
                   Sign out
                 </button>
@@ -238,6 +261,6 @@ export function Topbar({
           </AnimatePresence>
         </div>
       </div>
-    </header>);
-
+    </header>
+  );
 }

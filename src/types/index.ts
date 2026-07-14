@@ -31,6 +31,7 @@ export interface Employee {
   gender: 'Male' | 'Female' | 'Other';
   dateOfBirth: string; // ISO date
   address: string;
+  isAdmin?: boolean;
 }
 
 export type AttendanceStatus =

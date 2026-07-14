@@ -1,6 +1,6 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { HrmsProvider } from './store/HrmsContext';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HrmsProvider, useHrms } from './store/HrmsContext';
 import { AppLayout } from './layout/AppLayout';
 import { DashboardPage } from './pages/DashboardPage';
 import { EmployeesPage } from './pages/EmployeesPage';
@@ -14,27 +14,62 @@ import { RecruitmentPage } from './pages/RecruitmentPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+
+// Auth & Personal Portal Pages
+import { LoginPage } from './pages/LoginPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { MyAttendancePage } from './pages/MyAttendancePage';
+import { MyLeavesPage } from './pages/MyLeavesPage';
+
+// Role-based routing wrappers
+function AttendanceRoute() {
+  const { isAdmin } = useHrms();
+  return isAdmin ? <AttendancePage /> : <MyAttendancePage />;
+}
+
+function LeaveRoute() {
+  const { isAdmin } = useHrms();
+  return isAdmin ? <LeavePage /> : <MyLeavesPage />;
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAdmin } = useHrms();
+  return isAdmin ? <>{children}</> : <Navigate to="/profile" replace />;
+}
+
 export function App() {
   return (
     <HrmsProvider>
       <BrowserRouter>
         <Routes>
+          {/* Public Auth Routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* Protected Application Routes */}
           <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
-            <Route path="/employees" element={<EmployeesPage />} />
-            <Route path="/employees/:id" element={<EmployeeProfilePage />} />
-            <Route path="/departments" element={<DepartmentsPage />} />
-            <Route path="/attendance" element={<AttendancePage />} />
-            <Route path="/leave" element={<LeavePage />} />
-            <Route path="/payroll" element={<PayrollPage />} />
-            <Route path="/performance" element={<PerformancePage />} />
-            <Route path="/recruitment" element={<RecruitmentPage />} />
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
+            
+            {/* Dynamic personal/admin routes */}
+            <Route path="/attendance" element={<AttendanceRoute />} />
+            <Route path="/leave" element={<LeaveRoute />} />
+            <Route path="/profile" element={<ProfilePage />} />
+
+            {/* Admin-only routes */}
+            <Route path="/employees" element={<AdminRoute><EmployeesPage /></AdminRoute>} />
+            <Route path="/employees/:id" element={<AdminRoute><EmployeeProfilePage /></AdminRoute>} />
+            <Route path="/departments" element={<AdminRoute><DepartmentsPage /></AdminRoute>} />
+            <Route path="/payroll" element={<AdminRoute><PayrollPage /></AdminRoute>} />
+            <Route path="/performance" element={<AdminRoute><PerformancePage /></AdminRoute>} />
+            <Route path="/recruitment" element={<AdminRoute><RecruitmentPage /></AdminRoute>} />
+            <Route path="/reports" element={<AdminRoute><ReportsPage /></AdminRoute>} />
+            <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
-    </HrmsProvider>);
-
+    </HrmsProvider>
+  );
 }

@@ -36,6 +36,7 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { useHrms } from '../store/HrmsContext';
+import { EmployeeDashboard } from '../components/dashboard/EmployeeDashboard';
 import { fullName } from '../data/employees';
 import { todayISO } from '../data/attendance';
 import {
@@ -68,8 +69,12 @@ export function DashboardPage() {
     performanceReviews,
     positions,
     activityFeed,
-    attendanceRecords
+    attendanceRecords,
+    isAdmin
   } = useHrms();
+  if (!isAdmin) {
+    return <EmployeeDashboard />;
+  }
   const stats = useMemo(() => {
     const total = employees.length;
     const onLeave = employees.filter((e) => e.status === 'On Leave').length;

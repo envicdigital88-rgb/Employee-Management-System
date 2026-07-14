@@ -41,7 +41,8 @@ CREATE TABLE employees (
   salary NUMERIC(15, 2) NOT NULL,
   gender VARCHAR(50) NOT NULL,
   date_of_birth DATE NOT NULL,
-  address TEXT NOT NULL
+  address TEXT NOT NULL,
+  is_admin BOOLEAN DEFAULT FALSE
 );
 
 -- Set head_employee_id foreign key constraint now that employees table exists
@@ -582,4 +583,7 @@ ALTER TABLE payroll_records DISABLE ROW LEVEL SECURITY;
 ALTER TABLE performance_reviews DISABLE ROW LEVEL SECURITY;
 ALTER TABLE onboarding_tasks DISABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_feed DISABLE ROW LEVEL SECURITY;
+
+-- Set admin flags for seeded administrators
+UPDATE employees SET is_admin = TRUE WHERE id IN ('EMP-1001', 'EMP-1030');
 

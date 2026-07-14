@@ -64,6 +64,7 @@ const mapEmployeeFromDb = (e: any): Employee => ({
   gender: e.gender,
   dateOfBirth: e.date_of_birth,
   address: e.address,
+  isAdmin: !!e.is_admin,
 });
 
 const mapEmployeeToDb = (e: Partial<Employee>): any => {
@@ -85,6 +86,7 @@ const mapEmployeeToDb = (e: Partial<Employee>): any => {
   if (e.gender !== undefined) res.gender = e.gender;
   if (e.dateOfBirth !== undefined) res.date_of_birth = e.dateOfBirth;
   if (e.address !== undefined) res.address = e.address;
+  if (e.isAdmin !== undefined) res.is_admin = e.isAdmin;
   return res;
 };
 
@@ -188,12 +190,29 @@ interface HrmsState {
   isLive: boolean;
   connectionError: string | null;
   
+  // Auth State
+  currentUser: Employee | null;
+  isAdmin: boolean;
+  
   // Mutations
   addEmployee: (e: Omit<Employee, 'id' | 'avatarUrl'>) => void;
   updateEmployeeStatus: (ids: string[], status: EmployeeStatus) => void;
   assignDepartment: (ids: string[], departmentId: string) => void;
   setLeaveStatus: (ids: string[], status: LeaveStatus) => void;
   moveCandidate: (id: string, stage: CandidateStage) => void;
+  
+  // Auth Operations
+  login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
+  updateProfile: (data: Partial<Employee>) => Promise<void>;
+  
+  // Attendance Clock-in Operations
+  clockIn: () => Promise<void>;
+  clockOut: () => Promise<void>;
+  applyLeave: (l: Omit<LeaveRequest, 'id' | 'status' | 'requestedOn'>) => Promise<void>;
 
   // Utility Lookups
   getEmployee: (id: string | null) => Employee | undefined;
@@ -209,7 +228,6 @@ const avatar = (seed: string) =>
   `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(seed)}&backgroundColor=14171c,1a1d23,262a31&radius=50`;
 
 export function HrmsProvider({ children }: { children: ReactNode }) {
-  // Local state initialized with fallback seeds
   const [employees, setEmployees] = useState<Employee[]>(seedEmployees);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(seedLeave);
   const [candidates, setCandidates] = useState<Candidate[]>(seedCandidates);
@@ -224,6 +242,14 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isLive, setIsLive] = useState<boolean>(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+
+  // Authentication states
+  const [currentUser, setCurrentUser] = useState<Employee | null>(null);
+
+  const isAdmin = useMemo(() => {
+    if (!currentUser) return false;
+    return !!currentUser.isAdmin || currentUser.email === 'nadia.karim@envicdigital.com';
+  }, [currentUser]);
 
   // Initial Fetch Effect
   useEffect(() => {
@@ -275,8 +301,11 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         }
 
         if (dbDepts && dbEmps) {
-          setDepartments(dbDepts.map(mapDepartmentFromDb));
-          setEmployees(dbEmps.map(mapEmployeeFromDb));
+          const loadedDepts = dbDepts.map(mapDepartmentFromDb);
+          const loadedEmps = dbEmps.map(mapEmployeeFromDb);
+
+          setDepartments(loadedDepts);
+          setEmployees(loadedEmps);
           if (dbLeaves) setLeaveRequests(dbLeaves.map(mapLeaveFromDb));
           if (dbCands) setCandidates(dbCands.map(mapCandidateFromDb));
           if (dbAtt) setAttendanceRecords(dbAtt.map(mapAttendanceFromDb));
@@ -302,6 +331,253 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     loadData();
   }, []);
 
+  // Listen for Supabase Authentication status changes
+  useEffect(() => {
+    if (!isLive || !supabase) {
+      // Auto-login from localStorage if set in Demo Mode
+      const demoEmail = window.localStorage.getItem('DEMO_USER_EMAIL');
+      if (demoEmail) {
+        const found = employees.find(e => e.email.toLowerCase() === demoEmail.toLowerCase());
+        if (found) {
+          setCurrentUser(found);
+        }
+      }
+      return;
+    }
+
+    // Get current auth session and hook changes
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) {
+        const found = employees.find(e => e.email.toLowerCase() === session.user.email?.toLowerCase());
+        if (found) setCurrentUser(found);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.email) {
+        const found = employees.find(e => e.email.toLowerCase() === session.user.email?.toLowerCase());
+        if (found) {
+          setCurrentUser(found);
+        }
+      } else {
+        setCurrentUser(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [isLive, employees]);
+
+  // Auth Operations
+  const login = useCallback(async (email: string, password: string) => {
+    const searchEmail = email.trim().toLowerCase();
+    
+    // Check if employee exists first in the local cache
+    const foundEmployee = employees.find(e => e.email.toLowerCase() === searchEmail);
+    if (!foundEmployee) {
+      throw new Error('This email is not registered in our employee database.');
+    }
+
+    if (isLive && supabase) {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: searchEmail,
+        password
+      });
+      if (error) throw error;
+    } else {
+      // Demo Mode login
+      setCurrentUser(foundEmployee);
+      window.localStorage.setItem('DEMO_USER_EMAIL', foundEmployee.email);
+    }
+  }, [employees, isLive]);
+
+  const signup = useCallback(async (email: string, password: string) => {
+    const searchEmail = email.trim().toLowerCase();
+
+    // Verify employee matches
+    const foundEmployee = employees.find(e => e.email.toLowerCase() === searchEmail);
+    if (!foundEmployee) {
+      throw new Error('Your email must match an existing employee profile. Please contact HR.');
+    }
+
+    if (isLive && supabase) {
+      const { error } = await supabase.auth.signUp({
+        email: searchEmail,
+        password
+      });
+      if (error) throw error;
+    } else {
+      // Demo Mode signup
+      setCurrentUser(foundEmployee);
+      window.localStorage.setItem('DEMO_USER_EMAIL', foundEmployee.email);
+    }
+  }, [employees, isLive]);
+
+  const logout = useCallback(async () => {
+    if (isLive && supabase) {
+      await supabase.auth.signOut();
+    } else {
+      window.localStorage.removeItem('DEMO_USER_EMAIL');
+    }
+    setCurrentUser(null);
+  }, [isLive]);
+
+  const resetPassword = useCallback(async (email: string) => {
+    if (isLive && supabase) {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+    } else {
+      console.log(`Demo Mode: Reset password email simulated for ${email}`);
+    }
+  }, [isLive]);
+
+  const updatePassword = useCallback(async (password: string) => {
+    if (isLive && supabase) {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+    } else {
+      console.log('Demo Mode: Password updated simulation');
+    }
+  }, [isLive]);
+
+  const updateProfile = useCallback(async (data: Partial<Employee>) => {
+    if (!currentUser) return;
+    const updated = { ...currentUser, ...data };
+
+    setCurrentUser(updated);
+    setEmployees(prev => prev.map(e => e.id === currentUser.id ? updated : e));
+
+    if (isLive && supabase) {
+      try {
+        const dbRow = mapEmployeeToDb(data);
+        const { error } = await supabase.from('employees').update(dbRow).eq('id', currentUser.id);
+        if (error) console.error('Failed to save profile in database:', error);
+      } catch (err) {
+        console.error('Network error updating profile:', err);
+      }
+    }
+  }, [currentUser, isLive]);
+
+  // Clock-in attendance
+  const clockIn = useCallback(async () => {
+    if (!currentUser) return;
+
+    const today = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const isoDate = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    const timeStr = `${pad(today.getHours())}:${pad(today.getMinutes())}`;
+
+    const newRecord: AttendanceRecord = {
+      id: `ATT-${Date.now()}`,
+      employeeId: currentUser.id,
+      date: isoDate,
+      status: 'Present',
+      clockIn: timeStr,
+      clockOut: null,
+      hours: 0
+    };
+
+    setAttendanceRecords(prev => [newRecord, ...prev]);
+
+    if (isLive && supabase) {
+      try {
+        const { error } = await supabase.from('attendance_records').insert({
+          id: newRecord.id,
+          employee_id: currentUser.id,
+          date: isoDate,
+          status: 'Present',
+          clock_in: timeStr,
+          clock_out: null,
+          hours: 0
+        });
+        if (error) console.error('Failed to save clock-in in database:', error);
+      } catch (err) {
+        console.error('Network error clocking in:', err);
+      }
+    }
+  }, [currentUser, isLive]);
+
+  const clockOut = useCallback(async () => {
+    if (!currentUser) return;
+
+    const today = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const isoDate = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    const timeStr = `${pad(today.getHours())}:${pad(today.getMinutes())}`;
+
+    const todayRecord = attendanceRecords.find(r => r.employeeId === currentUser.id && r.date === isoDate);
+    if (!todayRecord) return;
+
+    let hours = 8;
+    if (todayRecord.clockIn) {
+      const [inH, inM] = todayRecord.clockIn.split(':').map(Number);
+      const outH = today.getHours();
+      const outM = today.getMinutes();
+      hours = Math.max(0.1, Number(((outH * 60 + outM) - (inH * 60 + inM)) / 60).toFixed(2));
+    }
+
+    const updatedRecord = {
+      ...todayRecord,
+      clockOut: timeStr,
+      hours
+    };
+
+    setAttendanceRecords(prev => prev.map(r => r.id === todayRecord.id ? updatedRecord : r));
+
+    if (isLive && supabase) {
+      try {
+        const { error } = await supabase.from('attendance_records').update({
+          clock_out: timeStr,
+          hours
+        }).eq('id', todayRecord.id);
+        if (error) console.error('Failed to save clock-out in database:', error);
+      } catch (err) {
+        console.error('Network error clocking out:', err);
+      }
+    }
+  }, [currentUser, attendanceRecords, isLive]);
+
+  const applyLeave = useCallback(async (data: Omit<LeaveRequest, 'id' | 'status' | 'requestedOn'>) => {
+    if (!currentUser) return;
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const today = new Date();
+    const requestedOn = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    const id = `LV-${Date.now()}`;
+
+    const newLeave: LeaveRequest = {
+      ...data,
+      id,
+      employeeId: currentUser.id,
+      status: 'Pending',
+      requestedOn
+    };
+
+    setLeaveRequests(prev => [newLeave, ...prev]);
+
+    if (isLive && supabase) {
+      try {
+        const { error } = await supabase.from('leave_requests').insert({
+          id: newLeave.id,
+          employee_id: currentUser.id,
+          type: newLeave.type,
+          start_date: newLeave.startDate,
+          end_date: newLeave.endDate,
+          days: newLeave.days,
+          reason: newLeave.reason,
+          status: 'Pending',
+          requested_on: requestedOn
+        });
+        if (error) console.error('Failed to insert leave request in database:', error);
+      } catch (err) {
+        console.error('Network error saving leave request:', err);
+      }
+    }
+  }, [currentUser, isLive]);
+
   // Mutations
   const addEmployee = useCallback(
     async (data: Omit<Employee, 'id' | 'avatarUrl'>) => {
@@ -316,7 +592,6 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         avatarUrl
       };
 
-      // Optimistically update local React state
       setEmployees((prev) => [newEmp, ...prev]);
 
       if (isLive && supabase) {
@@ -325,8 +600,6 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
           const { error } = await supabase.from('employees').insert(dbRow);
           if (error) {
             console.error('Failed to insert employee in database:', error);
-          } else {
-            console.log(`Successfully added employee ${id} to database.`);
           }
         } catch (err) {
           console.error('Network error inserting employee:', err);
@@ -338,7 +611,6 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
   const updateEmployeeStatus = useCallback(
     async (ids: string[], status: EmployeeStatus) => {
-      // Optimistically update local React state
       setEmployees((prev) =>
         prev.map((e) => (ids.includes(e.id) ? { ...e, status } : e))
       );
@@ -362,7 +634,6 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
   const assignDepartment = useCallback(
     async (ids: string[], departmentId: string) => {
-      // Optimistically update local React state
       setEmployees((prev) =>
         prev.map((e) => (ids.includes(e.id) ? { ...e, departmentId } : e))
       );
@@ -386,7 +657,6 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
   const setLeaveStatus = useCallback(
     async (ids: string[], status: LeaveStatus) => {
-      // Optimistically update local React state
       setLeaveRequests((prev) =>
         prev.map((l) => (ids.includes(l.id) ? { ...l, status } : l))
       );
@@ -410,7 +680,6 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
   const moveCandidate = useCallback(
     async (id: string, stage: CandidateStage) => {
-      // Optimistically update local React state
       setCandidates((prev) =>
         prev.map((c) => (c.id === id ? { ...c, stage } : c))
       );
@@ -463,7 +732,6 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
   const getLeaveBalance = useCallback(
     (employeeId: string): LeaveBalance | undefined => {
-      // If live and have leave requests, calculate dynamically or fallback to seed balances structure
       const seedBal = seedLeaveBalances.find((b) => b.employeeId === employeeId);
       const approvedLeaves = leaveRequests.filter(
         (l) => l.employeeId === employeeId && l.status === 'Approved'
@@ -503,11 +771,22 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       isLoading,
       isLive,
       connectionError,
+      currentUser,
+      isAdmin,
       addEmployee,
       updateEmployeeStatus,
       assignDepartment,
       setLeaveStatus,
       moveCandidate,
+      login,
+      signup,
+      logout,
+      resetPassword,
+      updatePassword,
+      updateProfile,
+      clockIn,
+      clockOut,
+      applyLeave,
       getEmployee,
       getDepartment,
       getPayrollForEmployee,
@@ -528,11 +807,22 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       isLoading,
       isLive,
       connectionError,
+      currentUser,
+      isAdmin,
       addEmployee,
       updateEmployeeStatus,
       assignDepartment,
       setLeaveStatus,
       moveCandidate,
+      login,
+      signup,
+      logout,
+      resetPassword,
+      updatePassword,
+      updateProfile,
+      clockIn,
+      clockOut,
+      applyLeave,
       getEmployee,
       getDepartment,
       getPayrollForEmployee,
