@@ -5,8 +5,15 @@ const getCredentials = () => {
     return { url: null, key: null };
   }
   
-  const localUrl = window.localStorage.getItem('SUPABASE_URL');
-  const localKey = window.localStorage.getItem('SUPABASE_ANON_KEY');
+  let localUrl = window.localStorage.getItem('SUPABASE_URL');
+  let localKey = window.localStorage.getItem('SUPABASE_ANON_KEY');
+
+  if (!localUrl || localUrl === 'null' || localUrl === 'undefined' || !localUrl.trim()) {
+    localUrl = null;
+  }
+  if (!localKey || localKey === 'null' || localKey === 'undefined' || !localKey.trim()) {
+    localKey = null;
+  }
 
   const url = localUrl || ((import.meta as any).env.VITE_SUPABASE_URL as string) || null;
   const key = localKey || ((import.meta as any).env.VITE_SUPABASE_ANON_KEY as string) || null;
