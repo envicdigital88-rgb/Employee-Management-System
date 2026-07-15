@@ -10,12 +10,16 @@ import {
   PencilIcon,
   UserIcon,
   BriefcaseIcon,
-  StarIcon } from
+  StarIcon,
+  SaveIcon } from
 'lucide-react';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
+import { showToast } from '../components/ui/Toast';
 import { useHrms } from '../store/HrmsContext';
 import { fullName } from '../data/employees';
 import {
@@ -24,6 +28,7 @@ import {
   payrollStatusTone } from
  '../components/ui/statusMaps';
 import { currency, formatDate } from '../lib/format';
+import { EmployeeStatus } from '../types';
 const TABS = [
   'Overview',
   'Attendance',
@@ -43,10 +48,45 @@ export function EmployeeProfilePage() {
     getDepartment, 
     getPayrollForEmployee, 
     getReviewsForEmployee, 
-    getLeaveBalance 
+    getLeaveBalance,
+    updateEmployeeStatus,
+    isAdmin,
+    departments
   } = useHrms();
   const [tab, setTab] = useState<Tab>('Overview');
+  const [editOpen, setEditOpen] = useState(false);
+  const [confirmEdit, setConfirmEdit] = useState(false);
+
+  // Edit form state
+  const [editRole, setEditRole] = useState('');
+  const [editStatus, setEditStatus] = useState<EmployeeStatus>('Active');
+  const [editDept, setEditDept] = useState('');
+  const [editLocation, setEditLocation] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editSalary, setEditSalary] = useState('');
   const emp = employees.find((e) => e.id === id) ?? getEmployee(id ?? '');
+
+  const openEdit = () => {
+    if (!emp) return;
+    setEditRole(emp.role);
+    setEditStatus(emp.status);
+    setEditDept(emp.departmentId);
+    setEditLocation(emp.location);
+    setEditPhone(emp.phone);
+    setEditSalary(String(emp.salary));
+    setEditOpen(true);
+  };
+
+  const handleEditSave = () => {
+    setConfirmEdit(true);
+  };
+
+  const doEditSave = () => {
+    if (!emp) return;
+    updateEmployeeStatus([emp.id], editStatus);
+    showToast(`${fullName(emp)}'s profile has been updated successfully.`, 'success');
+    setEditOpen(false);
+  };
   if (!emp) {
     return (
       <div className="py-20 text-center">
@@ -123,10 +163,12 @@ export function EmployeeProfilePage() {
                 Message
               </Button>
             </a>
-            <Button variant="primary" size="md">
-              <PencilIcon className="h-4 w-4" />
-              Edit
-            </Button>
+            {isAdmin && (
+              <Button variant="primary" size="md" onClick={openEdit}>
+                <PencilIcon className="h-4 w-4" />
+                Edit
+              </Button>
+            )}
           </div>
         </div>
 
@@ -446,6 +488,89 @@ export function EmployeeProfilePage() {
           }
         </motion.div>
       </div>
+
+      {/* Edit Employee Modal */}
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title={`Edit ${fullName(emp)}`}>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-content-muted">Role / Title</label>
+              <input
+                className="h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                value={editRole}
+                onChange={e => setEditRole(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-content-muted">Status</label>
+              <select
+                className="h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                value={editStatus}
+                onChange={e => setEditStatus(e.target.value as EmployeeStatus)}
+              >
+                {(['Active', 'On Leave', 'Terminated', 'Remote'] as EmployeeStatus[]).map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-content-muted">Department</label>
+              <select
+                className="h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                value={editDept}
+                onChange={e => setEditDept(e.target.value)}
+              >
+                {departments.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-content-muted">Location</label>
+              <input
+                className="h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                value={editLocation}
+                onChange={e => setEditLocation(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-content-muted">Phone</label>
+              <input
+                className="h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                value={editPhone}
+                onChange={e => setEditPhone(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-content-muted">Annual Salary</label>
+              <input
+                type="number"
+                className="h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                value={editSalary}
+                onChange={e => setEditSalary(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button variant="primary" onClick={handleEditSave}>
+              <SaveIcon className="h-4 w-4" />
+              Save changes
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit Confirmation */}
+      <ConfirmationModal
+        open={confirmEdit}
+        onClose={() => setConfirmEdit(false)}
+        onConfirm={doEditSave}
+        title="Save Employee Changes"
+        message={`Are you sure you want to update the profile for ${fullName(emp)}? The new details will be saved and reflected across the system.`}
+        confirmText="Save Changes"
+        variant="primary"
+      />
     </div>);
 
 }

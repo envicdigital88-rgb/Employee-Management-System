@@ -5,9 +5,11 @@ import { Card, CardHeader } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { KpiCard } from '../components/dashboard/KpiCard';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { CalendarIcon, PlaneIcon, CheckIcon, XIcon } from 'lucide-react';
 import { leaveStatusTone } from '../components/ui/statusMaps';
 import { LeaveType } from '../types';
+import { showToast } from '../components/ui/Toast';
 
 const fieldClass =
   'h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm text-content placeholder:text-content-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30';
@@ -22,6 +24,8 @@ export function MyLeavesPage() {
   const [reason, setReason] = useState('');
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<{ type: LeaveType; startDate: string; endDate: string; days: number; reason: string } | null>(null);
 
   if (!currentUser) return null;
 
@@ -67,25 +71,27 @@ export function MyLeavesPage() {
       return;
     }
 
-    // Calculate days (inclusive)
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
+    // Show confirmation before submitting
+    setPendingPayload({ type: leaveType, startDate, endDate, days: diffDays, reason });
+    setConfirmOpen(true);
+  };
+
+  const confirmSubmit = async () => {
+    if (!pendingPayload) return;
     try {
-      await applyLeave({
-        type: leaveType,
-        startDate,
-        endDate,
-        days: diffDays,
-        reason
-      });
+      await applyLeave(pendingPayload);
       setSuccess(true);
       setStartDate('');
       setEndDate('');
       setReason('');
+      showToast('Leave request submitted successfully!', 'success');
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
       setError(err.message || 'Failed to submit leave request.');
+      showToast('Failed to submit leave request.', 'error');
     }
   };
 
@@ -258,6 +264,16 @@ export function MyLeavesPage() {
           </div>
         </Card>
       </div>
+
+      <ConfirmationModal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={confirmSubmit}
+        title="Submit Leave Request"
+        message={pendingPayload ? `You are about to submit a ${pendingPayload.type} leave request from ${pendingPayload.startDate} to ${pendingPayload.endDate} (${pendingPayload.days} day${pendingPayload.days !== 1 ? 's' : ''}). This request will be sent to your HR admin for review.` : ''}
+        confirmText="Submit Request"
+        variant="primary"
+      />
     </div>
   );
 }

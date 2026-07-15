@@ -1,15 +1,19 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useHrms } from '../store/HrmsContext';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { ClockIcon, CalendarIcon, PlayIcon, LogOutIcon } from 'lucide-react';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
+import { ClockIcon, PlayIcon, LogOutIcon } from 'lucide-react';
 import { attendanceTone } from '../components/ui/statusMaps';
 import { todayISO } from '../data/attendance';
+import { showToast } from '../components/ui/Toast';
 
 export function MyAttendancePage() {
   const { currentUser, attendanceRecords, clockIn, clockOut } = useHrms();
+  const [confirmClockIn, setConfirmClockIn] = useState(false);
+  const [confirmClockOut, setConfirmClockOut] = useState(false);
 
   if (!currentUser) return null;
 
@@ -66,12 +70,12 @@ export function MyAttendancePage() {
 
           <div className="w-full flex gap-3">
             {!todayRecord ? (
-              <Button variant="primary" className="w-full flex items-center justify-center gap-2 h-11" onClick={clockIn}>
+              <Button variant="primary" className="w-full flex items-center justify-center gap-2 h-11" onClick={() => setConfirmClockIn(true)}>
                 <PlayIcon className="h-4 w-4 fill-current" />
                 Clock In Shift
               </Button>
             ) : !todayRecord.clockOut ? (
-              <Button variant="secondary" className="w-full flex items-center justify-center gap-2 h-11 border border-rose-500/20 text-rose-400 bg-rose-500/5 hover:bg-rose-500/10" onClick={clockOut}>
+              <Button variant="secondary" className="w-full flex items-center justify-center gap-2 h-11 border border-rose-500/20 text-rose-400 bg-rose-500/5 hover:bg-rose-500/10" onClick={() => setConfirmClockOut(true)}>
                 <LogOutIcon className="h-4 w-4" />
                 Clock Out Shift
               </Button>
@@ -135,6 +139,32 @@ export function MyAttendancePage() {
           </div>
         </Card>
       </div>
+
+      <ConfirmationModal
+        open={confirmClockIn}
+        onClose={() => setConfirmClockIn(false)}
+        onConfirm={async () => {
+          await clockIn();
+          showToast('You have clocked in successfully!', 'success');
+        }}
+        title="Clock In Shift"
+        message="Confirm that you are starting your work shift right now. Your clock-in time will be recorded."
+        confirmText="Clock In"
+        variant="primary"
+      />
+
+      <ConfirmationModal
+        open={confirmClockOut}
+        onClose={() => setConfirmClockOut(false)}
+        onConfirm={async () => {
+          await clockOut();
+          showToast('You have clocked out. Have a great rest of your day!', 'success');
+        }}
+        title="Clock Out Shift"
+        message="Confirm that you are ending your work shift now. Your total hours will be calculated and recorded."
+        confirmText="Clock Out"
+        variant="primary"
+      />
     </div>
   );
 }

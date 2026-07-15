@@ -8,12 +8,34 @@ import {
   PlusIcon,
   LogOutIcon,
   UserIcon,
-  SettingsIcon 
+  SettingsIcon,
+  ClockIcon,
+  PlaneIcon,
+  InfoIcon,
+  CheckCheckIcon,
+  TrashIcon
 } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { useHrms } from '../store/HrmsContext';
 import { fullName } from '../data/employees';
+
+const NOTIF_TYPE_ICONS: Record<string, React.ReactNode> = {
+  attendance: <ClockIcon className="h-3.5 w-3.5 text-blue-400" />,
+  leave: <PlaneIcon className="h-3.5 w-3.5 text-amber-400" />,
+  info: <InfoIcon className="h-3.5 w-3.5 text-accent" />,
+};
+
+function relativeTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 export function Topbar({
   onOpenMobileNav,
@@ -23,12 +45,15 @@ export function Topbar({
   onAddEmployee: () => void;
 }) {
   const navigate = useNavigate();
-  const { employees, currentUser, isAdmin, logout } = useHrms();
+  const { employees, currentUser, isAdmin, logout, notifications, markNotificationsAsRead, clearNotifications } = useHrms();
   
   const [query, setQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   const results =
     query.trim().length > 0 ?
@@ -43,7 +68,13 @@ export function Topbar({
   const currentUserRole = currentUser ? currentUser.role : 'Guest';
   const currentUserAvatar = currentUser?.avatarUrl || '';
 
+  const handleOpenNotif = () => {
+    setNotifOpen((v) => !v);
+    setMenuOpen(false);
+  };
+
   return (
+    <>
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-canvas/80 px-4 backdrop-blur-md sm:px-6">
       <button
         onClick={onOpenMobileNav}
@@ -71,18 +102,9 @@ export function Topbar({
         <AnimatePresence>
           {showResults && results.length > 0 &&
           <motion.ul
-            initial={{
-              opacity: 0,
-              y: 6
-            }}
-            animate={{
-              opacity: 1,
-              y: 0
-            }}
-            exit={{
-              opacity: 0,
-              y: 6
-            }}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
             className="absolute left-0 right-0 top-12 z-40 overflow-hidden rounded-xl border border-line bg-surface-raised shadow-panel">
             
               {results.map((e) =>
@@ -124,60 +146,91 @@ export function Topbar({
           </Button>
         )}
 
+        {/* Notification Bell */}
         <div className="relative">
           <button
-            onClick={() => {
-              setNotifOpen((v) => !v);
-              setMenuOpen(false);
-            }}
+            onClick={handleOpenNotif}
             className="relative rounded-lg p-2 text-content-muted transition-colors hover:bg-white/5 hover:text-content"
             aria-label="Notifications">
             
             <BellIcon className="h-5 w-5" />
-            {isAdmin && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent ring-2 ring-canvas" />}
+            {unreadCount > 0 && (
+              <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-canvas ring-2 ring-canvas">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
+
           <AnimatePresence>
             {notifOpen && (
               <motion.div
-                initial={{
-                  opacity: 0,
-                  y: 6
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0
-                }}
-                exit={{
-                  opacity: 0,
-                  y: 6
-                }}
-                className="absolute right-0 top-12 z-40 w-72 rounded-xl border border-line bg-surface-raised p-2 shadow-panel">
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                className="absolute right-0 top-12 z-40 w-80 rounded-xl border border-line bg-surface-raised shadow-panel overflow-hidden">
                 
-                  <p className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-content-faint">
-                    Notifications
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-line">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-content-faint">
+                    Notifications {unreadCount > 0 && <span className="ml-1 text-accent">({unreadCount} new)</span>}
                   </p>
-                  {isAdmin ? (
-                    [
-                      '3 leave requests await approval',
-                      'June payroll run is ready to finalize',
-                      '2 reviews due this week'
-                    ].map((n, i) =>
-                      <div
-                        key={i}
-                        className="rounded-lg px-2 py-2 text-sm text-content-muted hover:bg-white/5">
-                        {n}
-                      </div>
-                    )
-                  ) : (
-                    <div className="px-2 py-4 text-xs text-content-faint text-center">
-                      No new notifications.
+                  <div className="flex items-center gap-1.5">
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markNotificationsAsRead}
+                        className="text-[10px] text-accent hover:underline flex items-center gap-1"
+                        title="Mark all as read">
+                        <CheckCheckIcon className="h-3 w-3" />
+                        All read
+                      </button>
+                    )}
+                    {notifications.length > 0 && (
+                      <button
+                        onClick={clearNotifications}
+                        className="ml-1 text-[10px] text-content-faint hover:text-red-400 flex items-center gap-1"
+                        title="Clear all">
+                        <TrashIcon className="h-3 w-3" />
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* List */}
+                <div className="max-h-72 overflow-y-auto divide-y divide-line/50">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-xs text-content-faint text-center">
+                      No notifications yet.
                     </div>
+                  ) : (
+                    notifications.slice(0, 20).map((n) => (
+                      <div
+                        key={n.id}
+                        className={`flex items-start gap-3 px-4 py-3 transition-colors hover:bg-white/5 ${!n.read ? 'bg-accent/5' : ''}`}>
+                        <div className="mt-0.5 shrink-0">
+                          {NOTIF_TYPE_ICONS[n.type] ?? <InfoIcon className="h-3.5 w-3.5 text-accent" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-xs leading-snug ${!n.read ? 'text-content font-medium' : 'text-content-muted'}`}>
+                            {n.message}
+                          </p>
+                          <p className="mt-0.5 text-[10px] text-content-faint">
+                            {relativeTime(n.createdAt)}
+                          </p>
+                        </div>
+                        {!n.read && (
+                          <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-accent shrink-0" />
+                        )}
+                      </div>
+                    ))
                   )}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
+        {/* User menu */}
         <div className="relative">
           <button
             onClick={() => {
@@ -199,18 +252,9 @@ export function Topbar({
           <AnimatePresence>
             {menuOpen &&
             <motion.div
-              initial={{
-                opacity: 0,
-                y: 6
-              }}
-              animate={{
-                opacity: 1,
-                y: 0
-              }}
-              exit={{
-                opacity: 0,
-                y: 6
-              }}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
               className="absolute right-0 top-12 z-40 w-52 rounded-xl border border-line bg-surface-raised p-1.5 shadow-panel">
               
                 <div className="px-3 py-2">
@@ -248,8 +292,7 @@ export function Topbar({
                 <button 
                   onClick={() => {
                     setMenuOpen(false);
-                    logout();
-                    navigate('/login');
+                    setConfirmSignOut(true);
                   }}
                   className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-500/10"
                 >
@@ -262,5 +305,18 @@ export function Topbar({
         </div>
       </div>
     </header>
-  );
+
+    <ConfirmationModal
+      open={confirmSignOut}
+      onClose={() => setConfirmSignOut(false)}
+      onConfirm={() => {
+        logout();
+        navigate('/login');
+      }}
+      title="Sign Out"
+      message="Are you sure you want to sign out? You will need to log in again to access the system."
+      confirmText="Sign Out"
+      variant="danger"
+    />
+  </>);
 }

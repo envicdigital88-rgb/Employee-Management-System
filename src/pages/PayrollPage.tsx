@@ -14,6 +14,8 @@ import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { KpiCard } from '../components/dashboard/KpiCard';
 import { Modal } from '../components/ui/Modal';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
+import { showToast } from '../components/ui/Toast';
 import { useHrms } from '../store/HrmsContext';
 import { fullName } from '../data/employees';
 import { currentPeriod } from '../data/payroll';
@@ -23,6 +25,7 @@ import { PayrollRecord } from '../types';
 export function PayrollPage() {
   const { employees, getDepartment, getEmployee, payrollRecords } = useHrms();
   const [payslip, setPayslip] = useState<PayrollRecord | null>(null);
+  const [confirmRunPayroll, setConfirmRunPayroll] = useState(false);
   const rows = useMemo(() => {
     const ids = new Set(employees.map((e) => e.id));
     return payrollRecords.filter((p) => ids.has(p.employeeId));
@@ -49,7 +52,7 @@ export function PayrollPage() {
         title="Payroll"
         description={`Payroll run for ${currentPeriod} · ${rows.length} employees`}
         actions={
-        <Button variant="primary">
+        <Button variant="primary" onClick={() => setConfirmRunPayroll(true)}>
             <ReceiptIcon className="h-4 w-4" />
             Run payroll
           </Button>
@@ -222,6 +225,18 @@ export function PayrollPage() {
           </div>
         }
       </Modal>
+
+      <ConfirmationModal
+        open={confirmRunPayroll}
+        onClose={() => setConfirmRunPayroll(false)}
+        onConfirm={() => {
+          showToast(`Payroll run for ${currentPeriod} has been initiated successfully!`, 'success');
+        }}
+        title="Run Payroll"
+        message={`Are you sure you want to run payroll for ${currentPeriod}? This will process ${rows.length} employee salary records. This action cannot be undone.`}
+        confirmText="Run Payroll"
+        variant="primary"
+      />
     </div>);
 
 }

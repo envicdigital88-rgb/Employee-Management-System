@@ -13,6 +13,8 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Logo } from '../components/ui/Logo';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
+import { showToast } from '../components/ui/Toast';
 import { useHrms } from '../store/HrmsContext';
 // @ts-ignore
 import schemaSql from '../../supabase_schema.sql?raw';
@@ -37,14 +39,28 @@ export function SettingsPage() {
   const [dbSaved, setDbSaved] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Confirmation states
+  const [confirmSaveCompany, setConfirmSaveCompany] = useState(false);
+  const [confirmSaveDb, setConfirmSaveDb] = useState(false);
+  const [confirmResetDemo, setConfirmResetDemo] = useState(false);
+
   const saveCompany = (e: React.FormEvent) => {
     e.preventDefault();
+    setConfirmSaveCompany(true);
+  };
+
+  const doSaveCompany = () => {
     setSaved(true);
+    showToast('Company profile saved successfully!', 'success');
     setTimeout(() => setSaved(false), 2000);
   };
 
   const saveDbSettings = (e: React.FormEvent) => {
     e.preventDefault();
+    setConfirmSaveDb(true);
+  };
+
+  const doSaveDb = () => {
     if (dbUrl.trim() && dbKey.trim()) {
       window.localStorage.setItem('SUPABASE_URL', dbUrl.trim());
       window.localStorage.setItem('SUPABASE_ANON_KEY', dbKey.trim());
@@ -53,6 +69,7 @@ export function SettingsPage() {
       window.localStorage.removeItem('SUPABASE_ANON_KEY');
     }
     setDbSaved(true);
+    showToast('Database settings saved. Reconnecting...', 'success');
     setTimeout(() => {
       setDbSaved(false);
       window.location.reload();
@@ -60,11 +77,16 @@ export function SettingsPage() {
   };
 
   const resetToDemo = () => {
+    setConfirmResetDemo(true);
+  };
+
+  const doResetToDemo = () => {
     window.localStorage.removeItem('SUPABASE_URL');
     window.localStorage.removeItem('SUPABASE_ANON_KEY');
     setDbUrl('');
     setDbKey('');
-    window.location.reload();
+    showToast('Disconnected from database. Switching to Demo Mode...', 'info');
+    setTimeout(() => window.location.reload(), 800);
   };
 
   const handleCopySql = () => {
@@ -286,6 +308,35 @@ export function SettingsPage() {
           </p>
         </Card>
       </div>
+
+      {/* Confirmation Modals */}
+      <ConfirmationModal
+        open={confirmSaveCompany}
+        onClose={() => setConfirmSaveCompany(false)}
+        onConfirm={doSaveCompany}
+        title="Save Company Profile"
+        message="Are you sure you want to save the company profile changes? This will update the company information across the workspace."
+        confirmText="Save Changes"
+        variant="primary"
+      />
+      <ConfirmationModal
+        open={confirmSaveDb}
+        onClose={() => setConfirmSaveDb(false)}
+        onConfirm={doSaveDb}
+        title="Save Database Settings"
+        message="Saving new database credentials will reload the application and reconnect to your Supabase instance. Make sure the credentials are correct before proceeding."
+        confirmText="Save & Connect"
+        variant="primary"
+      />
+      <ConfirmationModal
+        open={confirmResetDemo}
+        onClose={() => setConfirmResetDemo(false)}
+        onConfirm={doResetToDemo}
+        title="Reset to Demo Mode"
+        message="This will disconnect from the live database and switch to Demo Mode using local seed data. All changes made to the live database will remain, but won't be visible until you reconnect."
+        confirmText="Disconnect & Reset"
+        variant="danger"
+      />
     </div>
   );
 }

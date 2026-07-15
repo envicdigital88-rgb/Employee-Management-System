@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { HrmsProvider, useHrms } from './store/HrmsContext';
 import { AppLayout } from './layout/AppLayout';
@@ -22,6 +22,9 @@ import { ProfilePage } from './pages/ProfilePage';
 import { MyAttendancePage } from './pages/MyAttendancePage';
 import { MyLeavesPage } from './pages/MyLeavesPage';
 
+// Toast
+import { ToastContainer, ToastMessage, ToastType, registerToastFn } from './components/ui/Toast';
+
 // Role-based routing wrappers
 function AttendanceRoute() {
   const { isAdmin } = useHrms();
@@ -38,9 +41,25 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return isAdmin ? <>{children}</> : <Navigate to="/profile" replace />;
 }
 
-export function App() {
+function AppWithToast() {
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = useCallback((msg: string, type: ToastType) => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2,7)}`;
+    setToasts(prev => [...prev, { id, message: msg, type }]);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  // Register globally for showToast() helper
+  React.useEffect(() => {
+    registerToastFn(addToast);
+  }, [addToast]);
+
   return (
-    <HrmsProvider>
+    <>
       <BrowserRouter>
         <Routes>
           {/* Public Auth Routes */}
@@ -70,6 +89,15 @@ export function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+    </>
+  );
+}
+
+export function App() {
+  return (
+    <HrmsProvider>
+      <AppWithToast />
     </HrmsProvider>
   );
 }

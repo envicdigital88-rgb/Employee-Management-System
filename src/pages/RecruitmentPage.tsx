@@ -11,11 +11,13 @@ import { Card, CardHeader } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { KpiCard } from '../components/dashboard/KpiCard';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
+import { showToast } from '../components/ui/Toast';
 import { useHrms } from '../store/HrmsContext';
 import { fullName } from '../data/employees';
 import { candidateStageTone } from '../components/ui/statusMaps';
 import { formatDate } from '../lib/format';
-import { CandidateStage } from '../types';
+import { CandidateStage, Candidate } from '../types';
 const STAGES: CandidateStage[] = [
 'Applied',
 'Screening',
@@ -26,6 +28,18 @@ const STAGES: CandidateStage[] = [
 export function RecruitmentPage() {
   const { candidates, moveCandidate, employees, getDepartment, positions, onboardingTasks } = useHrms();
   const [dragId, setDragId] = useState<string | null>(null);
+  const [pendingMove, setPendingMove] = useState<{ candidate: Candidate; toStage: CandidateStage } | null>(null);
+
+  const handleDropOnStage = (targetStage: CandidateStage) => {
+    if (!dragId) return;
+    const candidate = candidates.find(c => c.id === dragId);
+    if (!candidate || candidate.stage === targetStage) {
+      setDragId(null);
+      return;
+    }
+    setPendingMove({ candidate, toStage: targetStage });
+    setDragId(null);
+  };
   const openings = positions.
   filter((p) => p.status === 'Open').
   reduce((s, p) => s + p.openings, 0);
@@ -85,10 +99,7 @@ export function RecruitmentPage() {
             <div
               key={stage}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={() => {
-                if (dragId) moveCandidate(dragId, stage);
-                setDragId(null);
-              }}
+              onDrop={() => handleDropOnStage(stage)}
               className="rounded-2xl border border-line bg-surface/60 p-2">
               
               <div className="flex items-center justify-between px-2 py-2">
@@ -247,6 +258,21 @@ export function RecruitmentPage() {
           </div>
         </Card>
       </div>
+
+      {pendingMove && (
+        <ConfirmationModal
+          open={!!pendingMove}
+          onClose={() => setPendingMove(null)}
+          onConfirm={() => {
+            moveCandidate(pendingMove.candidate.id, pendingMove.toStage);
+            showToast(`${pendingMove.candidate.name} moved to ${pendingMove.toStage}`, 'success');
+          }}
+          title="Move Candidate"
+          message={`Move ${pendingMove.candidate.name} from "${pendingMove.candidate.stage}" to "${pendingMove.toStage}"? This will update their pipeline stage.`}
+          confirmText="Move Candidate"
+          variant="primary"
+        />
+      )}
     </div>);
 
 }

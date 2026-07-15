@@ -157,3 +157,12 @@ export interface ActivityItem {
   message: string;
   timestamp: string; // ISO datetime
 }
+
+export interface Notification {
+  id: string;
+  recipientId: string;
+  message: string;
+  createdAt: string;
+  read: boolean;
+  type: 'attendance' | 'leave' | 'info';
+}
