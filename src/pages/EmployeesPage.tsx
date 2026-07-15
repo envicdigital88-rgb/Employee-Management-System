@@ -148,6 +148,11 @@ export function EmployeesPage() {
 
   const doDelete = async () => {
     if (!confirmDelete) return;
+    if (confirmDelete.isAdmin) {
+      showToast('Admin users cannot be deleted.', 'error');
+      setConfirmDelete(null);
+      return;
+    }
     try {
       await deleteEmployee(confirmDelete.id);
       showToast(`${fullName(confirmDelete)} has been deleted.`, 'success');
@@ -353,17 +358,27 @@ export function EmployeesPage() {
                             }
                           </button>
 
-                          {/* Delete */}
-                          <button
-                            onClick={(ev) => {
-                              ev.stopPropagation();
-                              setConfirmDelete(e);
-                            }}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-red-500/10 hover:text-red-400"
-                            title="Delete employee"
-                            aria-label={`Delete ${fullName(e)}`}>
-                            <Trash2Icon className="h-4 w-4" />
-                          </button>
+                          {/* Delete — disabled for admin users */}
+                          {e.isAdmin ? (
+                            <button
+                              disabled
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg cursor-not-allowed opacity-30 text-content-faint"
+                              title="Admin users cannot be deleted"
+                              aria-label="Admin users cannot be deleted">
+                              <Trash2Icon className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                setConfirmDelete(e);
+                              }}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-red-500/10 hover:text-red-400"
+                              title="Delete employee"
+                              aria-label={`Delete ${fullName(e)}`}>
+                              <Trash2Icon className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     )}

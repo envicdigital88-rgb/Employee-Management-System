@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { DownloadIcon, UserCogIcon, Building2Icon, XIcon, Trash2Icon } from 'lucide-react';
+import { DownloadIcon, UserCogIcon, Building2Icon, XIcon, Trash2Icon, ShieldIcon } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { useHrms } from '../../store/HrmsContext';
@@ -13,7 +13,7 @@ export function BulkActionsBar({
   onClear,
   onExport
 }: {selectedIds: string[]; onClear: () => void; onExport: () => void;}) {
-  const { updateEmployeeStatus, assignDepartment, deleteEmployee } = useHrms();
+  const { employees, updateEmployeeStatus, assignDepartment, deleteEmployee } = useHrms();
   const [statusVal, setStatusVal] = useState<EmployeeStatus | ''>('');
   const [deptVal, setDeptVal] = useState('');
 
@@ -35,9 +35,28 @@ export function BulkActionsBar({
   };
 
   const doBulkDelete = async () => {
+    // Filter out admin users — they are protected from deletion
+    const deletable = selectedIds.filter((id) => {
+      const emp = employees.find((e) => e.id === id);
+      return emp && !emp.isAdmin;
+    });
+    const skippedAdmins = selectedIds.length - deletable.length;
+
+    if (deletable.length === 0) {
+      showToast('No employees deleted — admin users cannot be deleted.', 'error');
+      return;
+    }
+
     try {
-      await Promise.all(selectedIds.map((id) => deleteEmployee(id)));
-      showToast(`${count} employee${count !== 1 ? 's' : ''} deleted successfully.`, 'success');
+      await Promise.all(deletable.map((id) => deleteEmployee(id)));
+      if (skippedAdmins > 0) {
+        showToast(
+          `${deletable.length} employee${deletable.length !== 1 ? 's' : ''} deleted. ${skippedAdmins} admin user${skippedAdmins !== 1 ? 's were' : ' was'} skipped (protected).`,
+          'info'
+        );
+      } else {
+        showToast(`${deletable.length} employee${deletable.length !== 1 ? 's' : ''} deleted successfully.`, 'success');
+      }
       onClear();
     } catch (err: any) {
       showToast(err.message || 'Failed to delete some employees', 'error');
