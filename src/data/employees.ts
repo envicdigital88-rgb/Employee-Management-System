@@ -542,6 +542,17 @@ export const employees: Employee[] = [
 }];
 
 
+// Assign default shifts to seed data for testing
+employees.forEach((emp, i) => {
+  const shifts = [
+    'Morning Shift (9:00 AM - 5:00 PM)',
+    'Evening Shift (5:00 PM - 1:00 AM)',
+    'Night Shift (1:00 AM - 9:00 AM)',
+    'Flexible Shift'
+  ];
+  emp.shift = shifts[i % shifts.length];
+});
+
 export const fullName = (e: Employee): string => `${e.firstName} ${e.lastName}`;
 export const getEmployee = (id: string | null): Employee | undefined =>
 employees.find((e) => e.id === id);

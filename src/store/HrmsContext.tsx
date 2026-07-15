@@ -68,6 +68,7 @@ const mapEmployeeFromDb = (e: any): Employee => ({
   dateOfBirth: e.date_of_birth,
   address: e.address,
   isAdmin: !!e.is_admin,
+  shift: e.shift || 'Morning Shift (9:00 AM - 5:00 PM)',
 });
 
 const mapEmployeeToDb = (e: Partial<Employee>): any => {
@@ -90,6 +91,7 @@ const mapEmployeeToDb = (e: Partial<Employee>): any => {
   if (e.dateOfBirth !== undefined) res.date_of_birth = e.dateOfBirth;
   if (e.address !== undefined) res.address = e.address;
   if (e.isAdmin !== undefined) res.is_admin = e.isAdmin;
+  if (e.shift !== undefined) res.shift = e.shift;
   return res;
 };
 
@@ -999,6 +1001,8 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       currentUser,
       isAdmin,
       addEmployee,
+      updateEmployee,
+      deleteEmployee,
       updateEmployeeStatus,
       assignDepartment,
       setLeaveStatus,
@@ -1039,6 +1043,8 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       currentUser,
       isAdmin,
       addEmployee,
+      updateEmployee,
+      deleteEmployee,
       updateEmployeeStatus,
       assignDepartment,
       setLeaveStatus,

@@ -11,7 +11,9 @@ import {
   UserIcon,
   BriefcaseIcon,
   StarIcon,
-  SaveIcon } from
+  SaveIcon,
+  ClockIcon,
+  Trash2Icon } from
 'lucide-react';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -50,12 +52,15 @@ export function EmployeeProfilePage() {
     getReviewsForEmployee, 
     getLeaveBalance,
     updateEmployeeStatus,
+    updateEmployee,
+    deleteEmployee,
     isAdmin,
     departments
   } = useHrms();
   const [tab, setTab] = useState<Tab>('Overview');
   const [editOpen, setEditOpen] = useState(false);
   const [confirmEdit, setConfirmEdit] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Edit form state
   const [editRole, setEditRole] = useState('');
@@ -64,6 +69,7 @@ export function EmployeeProfilePage() {
   const [editLocation, setEditLocation] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editSalary, setEditSalary] = useState('');
+  const [editShift, setEditShift] = useState('');
   const emp = employees.find((e) => e.id === id) ?? getEmployee(id ?? '');
 
   const openEdit = () => {
@@ -74,6 +80,7 @@ export function EmployeeProfilePage() {
     setEditLocation(emp.location);
     setEditPhone(emp.phone);
     setEditSalary(String(emp.salary));
+    setEditShift(emp.shift || 'Morning Shift (9:00 AM - 5:00 PM)');
     setEditOpen(true);
   };
 
@@ -81,11 +88,34 @@ export function EmployeeProfilePage() {
     setConfirmEdit(true);
   };
 
-  const doEditSave = () => {
+  const doEditSave = async () => {
     if (!emp) return;
-    updateEmployeeStatus([emp.id], editStatus);
-    showToast(`${fullName(emp)}'s profile has been updated successfully.`, 'success');
-    setEditOpen(false);
+    try {
+      await updateEmployee(emp.id, {
+        role: editRole,
+        status: editStatus,
+        departmentId: editDept,
+        location: editLocation,
+        phone: editPhone,
+        salary: Number(editSalary) || 0,
+        shift: editShift
+      });
+      showToast(`${fullName(emp)}'s profile has been updated successfully.`, 'success');
+      setEditOpen(false);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update profile', 'error');
+    }
+  };
+
+  const doDelete = async () => {
+    if (!emp) return;
+    try {
+      await deleteEmployee(emp.id);
+      showToast(`${fullName(emp)} has been deleted.`, 'success');
+      navigate('/employees');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete employee', 'error');
+    }
   };
   if (!emp) {
     return (
@@ -164,10 +194,27 @@ export function EmployeeProfilePage() {
               </Button>
             </a>
             {isAdmin && (
-              <Button variant="primary" size="md" onClick={openEdit}>
-                <PencilIcon className="h-4 w-4" />
-                Edit
-              </Button>
+              <>
+                <Button 
+                  variant="secondary" 
+                  size="md" 
+                  onClick={() => {
+                    const nextStatus = emp.status === 'Active' ? 'Terminated' : 'Active';
+                    updateEmployee(emp.id, { status: nextStatus });
+                    showToast(`${fullName(emp)} has been ${nextStatus === 'Active' ? 'activated' : 'deactivated'}.`, 'success');
+                  }}
+                >
+                  {emp.status === 'Active' ? 'Deactivate' : 'Activate'}
+                </Button>
+                <Button variant="primary" size="md" onClick={openEdit}>
+                  <PencilIcon className="h-4 w-4" />
+                  Edit
+                </Button>
+                <Button variant="danger" size="md" onClick={() => setConfirmDelete(true)}>
+                  <Trash2Icon className="h-4 w-4" />
+                  Delete
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -250,6 +297,11 @@ export function EmployeeProfilePage() {
                   label="Location"
                   value={emp.location} />
                 
+                  <InfoRow
+                  icon={ClockIcon}
+                  label="Work Shift"
+                  value={emp.shift || 'Morning Shift (9:00 AM - 5:00 PM)'} />
+
                   <InfoRow
                   icon={StarIcon}
                   label="Annual salary"
@@ -550,6 +602,23 @@ export function EmployeeProfilePage() {
                 onChange={e => setEditSalary(e.target.value)}
               />
             </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-content-muted">Work Shift</label>
+              <select
+                className="h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                value={editShift}
+                onChange={e => setEditShift(e.target.value)}
+              >
+                {[
+                  'Morning Shift (9:00 AM - 5:00 PM)',
+                  'Evening Shift (5:00 PM - 1:00 AM)',
+                  'Night Shift (1:00 AM - 9:00 AM)',
+                  'Flexible Shift'
+                ].map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setEditOpen(false)}>Cancel</Button>
@@ -570,6 +639,18 @@ export function EmployeeProfilePage() {
         message={`Are you sure you want to update the profile for ${fullName(emp)}? The new details will be saved and reflected across the system.`}
         confirmText="Save Changes"
         variant="primary"
+      />
+
+      {/* Delete Confirmation */}
+      <ConfirmationModal
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={doDelete}
+        title="Delete Employee Profile"
+        message={`Are you sure you want to permanently delete the profile for ${fullName(emp)}? This action is irreversible and will delete all related attendance, payroll, performance, and leave records.`}
+        confirmText="Delete Profile"
+        cancelText="Cancel"
+        variant="danger"
       />
     </div>);
 

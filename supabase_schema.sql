@@ -42,7 +42,8 @@ CREATE TABLE employees (
   gender VARCHAR(50) NOT NULL,
   date_of_birth DATE NOT NULL,
   address TEXT NOT NULL,
-  is_admin BOOLEAN DEFAULT FALSE
+  is_admin BOOLEAN DEFAULT FALSE,
+  shift VARCHAR(100) DEFAULT 'Morning Shift (9:00 AM - 5:00 PM)'
 );
 
 -- Set head_employee_id foreign key constraint now that employees table exists

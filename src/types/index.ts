@@ -32,6 +32,7 @@ export interface Employee {
   dateOfBirth: string; // ISO date
   address: string;
   isAdmin?: boolean;
+  shift?: string;
 }
 
 export type AttendanceStatus =

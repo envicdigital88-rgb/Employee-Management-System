@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { DownloadIcon, UserCogIcon, Building2Icon, XIcon } from 'lucide-react';
+import { DownloadIcon, UserCogIcon, Building2Icon, XIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { useHrms } from '../../store/HrmsContext';
@@ -13,13 +13,14 @@ export function BulkActionsBar({
   onClear,
   onExport
 }: {selectedIds: string[]; onClear: () => void; onExport: () => void;}) {
-  const { updateEmployeeStatus, assignDepartment } = useHrms();
+  const { updateEmployeeStatus, assignDepartment, deleteEmployee } = useHrms();
   const [statusVal, setStatusVal] = useState<EmployeeStatus | ''>('');
   const [deptVal, setDeptVal] = useState('');
 
   // Confirmation states
   const [confirmStatus, setConfirmStatus] = useState<{ status: EmployeeStatus } | null>(null);
   const [confirmDept, setConfirmDept] = useState<{ deptId: string; deptName: string } | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
   const count = selectedIds.length;
 
@@ -31,6 +32,16 @@ export function BulkActionsBar({
   const handleDeptChange = (deptId: string, deptName: string) => {
     setDeptVal(deptId);
     setConfirmDept({ deptId, deptName });
+  };
+
+  const doBulkDelete = async () => {
+    try {
+      await Promise.all(selectedIds.map((id) => deleteEmployee(id)));
+      showToast(`${count} employee${count !== 1 ? 's' : ''} deleted successfully.`, 'success');
+      onClear();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete some employees', 'error');
+    }
   };
 
   return (
@@ -92,6 +103,18 @@ export function BulkActionsBar({
             </select>
           </label>
 
+          <div className="h-5 w-px bg-line" />
+
+          {/* Bulk Delete */}
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => setConfirmBulkDelete(true)}
+            aria-label={`Delete ${count} selected employees`}>
+            <Trash2Icon className="h-4 w-4" />
+            Delete {count}
+          </Button>
+
           <button
           onClick={onClear}
           className="ml-auto rounded-lg p-1.5 text-content-muted transition-colors hover:bg-white/5 hover:text-content"
@@ -135,6 +158,18 @@ export function BulkActionsBar({
         message={`You are about to move ${count} selected employee${count !== 1 ? 's' : ''} to the "${confirmDept?.deptName}" department. This will update their records immediately.`}
         confirmText="Assign Department"
         variant="primary"
+      />
+
+      {/* Bulk Delete confirmation */}
+      <ConfirmationModal
+        open={confirmBulkDelete}
+        onClose={() => setConfirmBulkDelete(false)}
+        onConfirm={doBulkDelete}
+        title={`Delete ${count} Employee${count !== 1 ? 's' : ''}`}
+        message={`Are you sure you want to permanently delete ${count} selected employee${count !== 1 ? 's' : ''}? This will also remove all their attendance, payroll, leave, and performance records. This action cannot be undone.`}
+        confirmText={`Delete ${count} Employee${count !== 1 ? 's' : ''}`}
+        cancelText="Cancel"
+        variant="danger"
       />
     </>
   );

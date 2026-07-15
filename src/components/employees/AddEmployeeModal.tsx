@@ -24,6 +24,7 @@ export function AddEmployeeModal({
     useState<EmploymentType>('Full-time');
   const [status, setStatus] = useState<EmployeeStatus>('Probation');
   const [salary, setSalary] = useState('');
+  const [shift, setShift] = useState('Morning Shift (9:00 AM - 5:00 PM)');
   const [tempPassword, setTempPassword] = useState('Password@123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,6 +34,7 @@ export function AddEmployeeModal({
     setEmail('');
     setRole('');
     setSalary('');
+    setShift('Morning Shift (9:00 AM - 5:00 PM)');
     setTempPassword('Password@123');
     setError('');
   };
@@ -70,7 +72,8 @@ export function AddEmployeeModal({
         salary: Number(salary) || 90000,
         gender: 'Other',
         dateOfBirth: '1995-01-01',
-        address: '—'
+        address: '—',
+        shift
       }, tempPassword.trim());
       reset();
       onClose();
@@ -207,19 +210,41 @@ export function AddEmployeeModal({
           </div>
         </div>
 
-        <div>
-          <label className={labelClass} htmlFor="tp">
-            Temporary Password for Employee Portal *
-          </label>
-          <input
-            id="tp"
-            type="text"
-            className={fieldClass}
-            value={tempPassword}
-            onChange={(e) => setTempPassword(e.target.value)}
-            placeholder="Password@123"
-            required
-          />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelClass} htmlFor="tp">
+              Temporary Password for Employee Portal *
+            </label>
+            <input
+              id="tp"
+              type="text"
+              className={fieldClass}
+              value={tempPassword}
+              onChange={(e) => setTempPassword(e.target.value)}
+              placeholder="Password@123"
+              required
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="sh">
+              Work Shift *
+            </label>
+            <select
+              id="sh"
+              className={fieldClass}
+              value={shift}
+              onChange={(e) => setShift(e.target.value)}
+            >
+              {[
+                'Morning Shift (9:00 AM - 5:00 PM)',
+                'Evening Shift (5:00 PM - 1:00 AM)',
+                'Night Shift (1:00 AM - 9:00 AM)',
+                'Flexible Shift'
+              ].map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {error &&

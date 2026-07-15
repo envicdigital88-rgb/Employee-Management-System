@@ -1,4 +1,4 @@
-import React, { useMemo, useState, createElement } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -8,7 +8,11 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   MailIcon,
-  UsersIcon } from
+  UsersIcon,
+  Trash2Icon,
+  ToggleLeftIcon,
+  ToggleRightIcon,
+  CalendarIcon } from
 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
@@ -16,21 +20,25 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { EmployeeFilters } from '../components/employees/EmployeeFilters';
 import { BulkActionsBar } from '../components/employees/BulkActionsBar';
 import { useHrms } from '../store/HrmsContext';
 import { fullName } from '../data/employees';
 import { employeeStatusTone } from '../components/ui/statusMaps';
 import { formatDate } from '../lib/format';
-import { Employee } from '../types';
+import { showToast } from '../components/ui/Toast';
+import { Employee, EmployeeStatus } from '../types';
+
 type SortKey = 'name' | 'department' | 'role' | 'status' | 'joinDate';
 const PAGE_SIZE = 10;
+
 export function EmployeesPage() {
   const navigate = useNavigate();
   const { openAddEmployee } = useOutletContext<{
     openAddEmployee: () => void;
   }>();
-  const { employees, getDepartment } = useHrms();
+  const { employees, getDepartment, updateEmployee, deleteEmployee, isAdmin } = useHrms();
   const [query, setQuery] = useState('');
   const [dept, setDept] = useState('all');
   const [status, setStatus] = useState('all');
@@ -38,6 +46,11 @@ export function EmployeesPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [selected, setSelected] = useState<string[]>([]);
   const [page, setPage] = useState(1);
+
+  // Per-row action states
+  const [confirmDelete, setConfirmDelete] = useState<Employee | null>(null);
+  const [confirmStatus, setConfirmStatus] = useState<{ emp: Employee; nextStatus: EmployeeStatus } | null>(null);
+
   const filtered = useMemo(() => {
     let list = employees.filter((e) => {
       const q = query.toLowerCase();
@@ -81,15 +94,16 @@ export function EmployeesPage() {
     });
     return list;
   }, [employees, query, dept, status, sortKey, sortDir]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const pageIds = paged.map((e) => e.id);
   const allPageSelected =
   pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
+
   const toggleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');else
-    {
+    if (sortKey === key) setSortDir((d) => d === 'asc' ? 'desc' : 'asc'); else {
       setSortKey(key);
       setSortDir('asc');
     }
@@ -131,19 +145,47 @@ export function EmployeesPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
-  const SortHeader = ({ label, k }: {label: string;k: SortKey;}) =>
+
+  const doDelete = async () => {
+    if (!confirmDelete) return;
+    try {
+      await deleteEmployee(confirmDelete.id);
+      showToast(`${fullName(confirmDelete)} has been deleted.`, 'success');
+      setSelected((prev) => prev.filter((id) => id !== confirmDelete.id));
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete employee', 'error');
+    } finally {
+      setConfirmDelete(null);
+    }
+  };
+
+  const doStatusToggle = async () => {
+    if (!confirmStatus) return;
+    try {
+      await updateEmployee(confirmStatus.emp.id, { status: confirmStatus.nextStatus });
+      showToast(
+        `${fullName(confirmStatus.emp)} is now ${confirmStatus.nextStatus}.`,
+        'success'
+      );
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update status', 'error');
+    } finally {
+      setConfirmStatus(null);
+    }
+  };
+
+  const SortHeader = ({ label, k }: {label: string; k: SortKey;}) =>
   <button
     onClick={() => toggleSort(k)}
     className="inline-flex items-center gap-1 font-medium text-content-muted transition-colors hover:text-content">
     
-      {label}
-      {sortKey === k && (
+    {label}
+    {sortKey === k && (
     sortDir === 'asc' ?
     <ChevronUpIcon className="h-3.5 w-3.5" /> :
-
     <ChevronDownIcon className="h-3.5 w-3.5" />)
     }
-    </button>;
+  </button>;
 
   return (
     <div>
@@ -181,7 +223,7 @@ export function EmployeesPage() {
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="w-full min-w-[900px] text-sm">
             <thead>
               <tr className="border-b border-line text-left text-xs">
                 <th className="w-10 px-4 py-3">
@@ -208,27 +250,26 @@ export function EmployeesPage() {
                 <th className="px-4 py-3">
                   <SortHeader label="Joined" k="joinDate" />
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-content-muted">
-                  Contact
-                </th>
+                {isAdmin && (
+                  <th className="px-4 py-3 text-right font-medium text-content-muted">
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
               {paged.map((e, i) => {
                 const dpt = getDepartment(e.departmentId);
                 const isSel = selected.includes(e.id);
+                const isActive = e.status === 'Active';
+                const nextStatus: EmployeeStatus = isActive ? 'Terminated' : 'Active';
+
                 return (
                   <motion.tr
                     key={e.id}
-                    initial={{
-                      opacity: 0
-                    }}
-                    animate={{
-                      opacity: 1
-                    }}
-                    transition={{
-                      delay: i * 0.02
-                    }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.02 }}
                     onClick={() => navigate(`/employees/${e.id}`)}
                     className={`group cursor-pointer border-b border-line/60 transition-colors hover:bg-white/[0.02] ${isSel ? 'bg-accent/[0.04]' : ''}`}>
                     
@@ -252,7 +293,7 @@ export function EmployeesPage() {
                           size="sm" />
                         
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-content group-hover:text-accent">
+                          <p className="truncate font-medium text-content group-hover:text-accent transition-colors">
                             {fullName(e)}
                           </p>
                           <p className="truncate text-xs text-content-faint">
@@ -265,9 +306,7 @@ export function EmployeesPage() {
                       <span className="inline-flex items-center gap-2 text-content-muted">
                         <span
                           className="h-2 w-2 rounded-full"
-                          style={{
-                            backgroundColor: dpt?.colorHex
-                          }} />
+                          style={{ backgroundColor: dpt?.colorHex }} />
                         
                         {dpt?.name}
                       </span>
@@ -278,21 +317,56 @@ export function EmployeesPage() {
                         {e.status}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 text-content-muted">
-                      {formatDate(e.joinDate)}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5 text-content-muted">
+                        <CalendarIcon className="h-3.5 w-3.5 shrink-0 text-content-faint" />
+                        <span className="text-xs">{formatDate(e.joinDate)}</span>
+                      </div>
                     </td>
-                    <td
-                      className="px-4 py-3 text-right"
-                      onClick={(ev) => ev.stopPropagation()}>
-                      
-                      <a
-                        href={`mailto:${e.email}`}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-white/5 hover:text-accent"
-                        aria-label={`Email ${fullName(e)}`}>
-                        
-                        <MailIcon className="h-4 w-4" />
-                      </a>
-                    </td>
+
+                    {isAdmin && (
+                      <td
+                        className="px-4 py-3 text-right"
+                        onClick={(ev) => ev.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          {/* Email */}
+                          <a
+                            href={`mailto:${e.email}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-white/5 hover:text-accent"
+                            aria-label={`Email ${fullName(e)}`}
+                            title={e.email}>
+                            <MailIcon className="h-4 w-4" />
+                          </a>
+
+                          {/* Toggle Active / Inactive */}
+                          <button
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setConfirmStatus({ emp: e, nextStatus });
+                            }}
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-white/5 ${isActive ? 'text-emerald-400 hover:text-red-400' : 'text-content-faint hover:text-emerald-400'}`}
+                            title={isActive ? 'Deactivate employee' : 'Activate employee'}
+                            aria-label={isActive ? `Deactivate ${fullName(e)}` : `Activate ${fullName(e)}`}>
+                            {isActive
+                              ? <ToggleRightIcon className="h-4 w-4" />
+                              : <ToggleLeftIcon className="h-4 w-4" />
+                            }
+                          </button>
+
+                          {/* Delete */}
+                          <button
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setConfirmDelete(e);
+                            }}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-red-500/10 hover:text-red-400"
+                            title="Delete employee"
+                            aria-label={`Delete ${fullName(e)}`}>
+                            <Trash2Icon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </motion.tr>);
 
               })}
@@ -349,7 +423,36 @@ export function EmployeesPage() {
         selectedIds={selected}
         onClear={() => setSelected([])}
         onExport={exportCsv} />
-      
+
+      {/* Delete Confirmation */}
+      <ConfirmationModal
+        open={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={doDelete}
+        title="Delete Employee"
+        message={confirmDelete
+          ? `Are you sure you want to permanently delete ${fullName(confirmDelete)} (${confirmDelete.id})? This will also remove all their attendance, payroll, leave, and performance records. This action cannot be undone.`
+          : ''}
+        confirmText="Delete Employee"
+        cancelText="Cancel"
+        variant="danger"
+      />
+
+      {/* Status Toggle Confirmation */}
+      <ConfirmationModal
+        open={!!confirmStatus}
+        onClose={() => setConfirmStatus(null)}
+        onConfirm={doStatusToggle}
+        title={confirmStatus?.nextStatus === 'Active' ? 'Activate Employee' : 'Deactivate Employee'}
+        message={confirmStatus
+          ? confirmStatus.nextStatus === 'Active'
+            ? `Are you sure you want to activate ${fullName(confirmStatus.emp)}? They will regain Active status and full system access.`
+            : `Are you sure you want to deactivate ${fullName(confirmStatus.emp)}? Their status will be changed to Terminated.`
+          : ''}
+        confirmText={confirmStatus?.nextStatus === 'Active' ? 'Activate' : 'Deactivate'}
+        cancelText="Cancel"
+        variant={confirmStatus?.nextStatus === 'Active' ? 'primary' : 'danger'}
+      />
     </div>);
 
 }
