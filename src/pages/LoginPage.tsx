@@ -14,9 +14,8 @@ const labelClass = 'mb-1.5 block text-xs font-medium text-content-muted';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login, signup, resetPassword, isLive } = useHrms();
+  const { login, resetPassword, isLive } = useHrms();
 
-  const [isSignUp, setIsSignUp] = useState(false);
   const [isForgot, setIsForgot] = useState(false);
 
   const [email, setEmail] = useState('');
@@ -36,9 +35,6 @@ export function LoginPage() {
         await resetPassword(email);
         setMessage('Password reset email sent! Check your inbox.');
         setIsForgot(false);
-      } else if (isSignUp) {
-        await signup(email, password);
-        navigate('/');
       } else {
         await login(email, password);
         navigate('/');
@@ -70,7 +66,7 @@ export function LoginPage() {
         <div className="flex flex-col items-center">
           <Logo />
           <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-content">
-            {isForgot ? 'Reset your password' : isSignUp ? 'Create your account' : 'Sign in to workspace'}
+            {isForgot ? 'Reset your password' : 'Sign in to workspace'}
           </h2>
           <p className="mt-1.5 text-center text-xs text-content-muted">
             ENVIC HRMS — Modern people management
@@ -131,7 +127,7 @@ export function LoginPage() {
               </div>
             )}
 
-            {!isForgot && !isSignUp && (
+            {!isForgot && (
               <div className="flex items-center justify-end">
                 <button
                   type="button"
@@ -148,8 +144,6 @@ export function LoginPage() {
                 ? 'Processing...'
                 : isForgot
                 ? 'Send reset link'
-                : isSignUp
-                ? 'Register account'
                 : 'Sign In'}
             </Button>
           </form>
@@ -164,26 +158,15 @@ export function LoginPage() {
               >
                 Back to Login
               </button>
-            ) : isSignUp ? (
-              <p className="text-content-muted">
-                Already have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => setIsSignUp(false)}
-                  className="font-medium text-accent hover:underline"
-                >
-                  Sign In
-                </button>
-              </p>
             ) : (
               <p className="text-content-muted">
-                First time logging in?{' '}
+                Your account is created by your HR admin.{' '}
                 <button
                   type="button"
-                  onClick={() => setIsSignUp(true)}
+                  onClick={() => setIsForgot(true)}
                   className="font-medium text-accent hover:underline"
                 >
-                  Register
+                  Forgot password?
                 </button>
               </p>
             )}

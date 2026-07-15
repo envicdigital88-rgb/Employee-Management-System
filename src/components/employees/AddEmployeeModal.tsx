@@ -21,9 +21,11 @@ export function AddEmployeeModal({
   const [role, setRole] = useState('');
   const [departmentId, setDepartmentId] = useState(departments[0].id);
   const [employmentType, setEmploymentType] =
-  useState<EmploymentType>('Full-time');
+    useState<EmploymentType>('Full-time');
   const [status, setStatus] = useState<EmployeeStatus>('Probation');
   const [salary, setSalary] = useState('');
+  const [tempPassword, setTempPassword] = useState('Password@123');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const reset = () => {
     setFirstName('');
@@ -31,16 +33,18 @@ export function AddEmployeeModal({
     setEmail('');
     setRole('');
     setSalary('');
+    setTempPassword('Password@123');
     setError('');
   };
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (
-    !firstName.trim() ||
-    !lastName.trim() ||
-    !email.trim() ||
-    !role.trim())
-    {
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !email.trim() ||
+      !role.trim() ||
+      !tempPassword.trim()
+    ) {
       setError('Please complete all required fields.');
       return;
     }
@@ -48,25 +52,33 @@ export function AddEmployeeModal({
       setError('Please enter a valid email address.');
       return;
     }
-    addEmployee({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      email: email.trim(),
-      phone: '+1 415 555 0000',
-      departmentId,
-      role: role.trim(),
-      status,
-      employmentType,
-      joinDate: new Date().toISOString().slice(0, 10),
-      location: 'HQ',
-      managerId: null,
-      salary: Number(salary) || 90000,
-      gender: 'Other',
-      dateOfBirth: '1995-01-01',
-      address: '—'
-    });
-    reset();
-    onClose();
+    setLoading(true);
+    setError('');
+    try {
+      await addEmployee({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        phone: '+1 415 555 0000',
+        departmentId,
+        role: role.trim(),
+        status,
+        employmentType,
+        joinDate: new Date().toISOString().slice(0, 10),
+        location: 'HQ',
+        managerId: null,
+        salary: Number(salary) || 90000,
+        gender: 'Other',
+        dateOfBirth: '1995-01-01',
+        address: '—'
+      }, tempPassword.trim());
+      reset();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Failed to add employee. Please check logs.');
+    } finally {
+      setLoading(false);
+    }
   };
   return (
     <Modal open={open} onClose={onClose} title="Add employee" size="lg">
@@ -195,6 +207,21 @@ export function AddEmployeeModal({
           </div>
         </div>
 
+        <div>
+          <label className={labelClass} htmlFor="tp">
+            Temporary Password for Employee Portal *
+          </label>
+          <input
+            id="tp"
+            type="text"
+            className={fieldClass}
+            value={tempPassword}
+            onChange={(e) => setTempPassword(e.target.value)}
+            placeholder="Password@123"
+            required
+          />
+        </div>
+
         {error &&
         <p
           className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400"
@@ -205,11 +232,11 @@ export function AddEmployeeModal({
         }
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary">
-            Add employee
+          <Button type="submit" variant="primary" disabled={loading}>
+            {loading ? 'Adding...' : 'Add employee'}
           </Button>
         </div>
       </form>

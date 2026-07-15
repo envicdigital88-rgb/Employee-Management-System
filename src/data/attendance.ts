@@ -19,12 +19,12 @@ function pad(n: number) {
   return n.toString().padStart(2, '0');
 }
 
-const today = new Date('2026-07-14T00:00:00');
+const today = new Date();
 
 export const attendanceRecords: AttendanceRecord[] = (() => {
   const records: AttendanceRecord[] = [];
   let counter = 1;
-  for (let d = 0; d < 14; d++) {
+  for (let d = 1; d < 14; d++) {
     const date = new Date(today);
     date.setDate(today.getDate() - d);
     const isWeekend = date.getDay() === 0 || date.getDay() === 6;

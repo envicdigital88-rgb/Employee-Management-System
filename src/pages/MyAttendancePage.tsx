@@ -50,7 +50,7 @@ export function MyAttendancePage() {
             <p className="text-[10px] text-content-faint uppercase tracking-wider font-semibold">Today's Status</p>
             {todayRecord ? (
               <div className="space-y-1">
-                <Badge tone={todayRecord.status === 'Late' ? 'warning' : 'success'}>
+                <Badge tone={todayRecord.status === 'Late' ? 'amber' : 'green'}>
                   {todayRecord.status}
                 </Badge>
                 <p className="text-xs text-content font-medium">
@@ -120,7 +120,7 @@ export function MyAttendancePage() {
                         })}
                       </td>
                       <td className="px-5 py-3">
-                        <Badge tone={attendanceTone(a.status)}>{a.status}</Badge>
+                        <Badge tone={attendanceTone[a.status]}>{a.status}</Badge>
                       </td>
                       <td className="px-5 py-3 text-xs text-content font-medium">{a.clockIn || '--:--'}</td>
                       <td className="px-5 py-3 text-xs text-content font-medium">{a.clockOut || '--:--'}</td>

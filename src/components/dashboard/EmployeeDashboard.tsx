@@ -192,7 +192,7 @@ export function EmployeeDashboard() {
                   Clock Out
                 </Button>
               ) : (
-                <Badge tone="success">Completed Shift ✓</Badge>
+                <Badge tone="green">Completed Shift ✓</Badge>
               )}
             </div>
           </Card>
@@ -254,7 +254,7 @@ export function EmployeeDashboard() {
                         {l.startDate} to {l.endDate} ({l.days} days)
                       </p>
                     </div>
-                    <Badge tone={l.status === 'Approved' ? 'success' : l.status === 'Pending' ? 'warning' : 'danger'}>
+                    <Badge tone={l.status === 'Approved' ? 'green' : l.status === 'Pending' ? 'amber' : 'red'}>
                       {l.status}
                     </Badge>
                   </div>

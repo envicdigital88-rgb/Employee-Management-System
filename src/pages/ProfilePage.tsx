@@ -145,7 +145,7 @@ export function ProfilePage() {
                     id="profile_gender"
                     className={fieldClass}
                     value={gender}
-                    onChange={(e) => setGender(e.target.value)}
+                    onChange={(e) => setGender(e.target.value as 'Male' | 'Female' | 'Other')}
                   >
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>

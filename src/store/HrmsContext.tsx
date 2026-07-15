@@ -3,6 +3,7 @@ import {
   useMemo,
   useState,
   useEffect,
+  useRef,
   createContext,
   useContext
 } from 'react';
@@ -24,7 +25,8 @@ import {
   LeaveBalance
 } from '../types';
 
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { supabase, isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from '../lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 
 // Seed Fallbacks
 import { employees as seedEmployees } from '../data/employees';
@@ -195,7 +197,7 @@ interface HrmsState {
   isAdmin: boolean;
   
   // Mutations
-  addEmployee: (e: Omit<Employee, 'id' | 'avatarUrl'>) => void;
+  addEmployee: (e: Omit<Employee, 'id' | 'avatarUrl'>, tempPassword?: string) => Promise<void>;
   updateEmployeeStatus: (ids: string[], status: EmployeeStatus) => void;
   assignDepartment: (ids: string[], departmentId: string) => void;
   setLeaveStatus: (ids: string[], status: LeaveStatus) => void;
@@ -212,7 +214,7 @@ interface HrmsState {
   // Attendance Clock-in Operations
   clockIn: () => Promise<void>;
   clockOut: () => Promise<void>;
-  applyLeave: (l: Omit<LeaveRequest, 'id' | 'status' | 'requestedOn'>) => Promise<void>;
+  applyLeave: (l: Omit<LeaveRequest, 'id' | 'status' | 'requestedOn' | 'employeeId'>) => Promise<void>;
 
   // Utility Lookups
   getEmployee: (id: string | null) => Employee | undefined;
@@ -245,6 +247,8 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
   // Authentication states
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
+  // Stores the auth email while employees list is still loading (fixes refresh → login redirect)
+  const pendingAuthEmailRef = useRef<string | null>(null);
 
   const isAdmin = useMemo(() => {
     if (!currentUser) return false;
@@ -338,28 +342,38 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       const demoEmail = window.localStorage.getItem('DEMO_USER_EMAIL');
       if (demoEmail) {
         const found = employees.find(e => e.email.toLowerCase() === demoEmail.toLowerCase());
-        if (found) {
-          setCurrentUser(found);
-        }
+        if (found) setCurrentUser(found);
+        else pendingAuthEmailRef.current = demoEmail; // employees not yet loaded
       }
       return;
     }
 
-    // Get current auth session and hook changes
+    // Get current auth session — employees may still be loading at this point
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
-        const found = employees.find(e => e.email.toLowerCase() === session.user.email?.toLowerCase());
-        if (found) setCurrentUser(found);
+        const email = session.user.email.toLowerCase();
+        const found = employees.find(e => e.email.toLowerCase() === email);
+        if (found) {
+          setCurrentUser(found);
+        } else {
+          // employees not loaded yet — save and resolve later
+          pendingAuthEmailRef.current = email;
+        }
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user?.email) {
-        const found = employees.find(e => e.email.toLowerCase() === session.user.email?.toLowerCase());
+        const email = session.user.email.toLowerCase();
+        const found = employees.find(e => e.email.toLowerCase() === email);
         if (found) {
           setCurrentUser(found);
+          pendingAuthEmailRef.current = null;
+        } else {
+          pendingAuthEmailRef.current = email;
         }
       } else {
+        pendingAuthEmailRef.current = null;
         setCurrentUser(null);
       }
     });
@@ -368,6 +382,16 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, [isLive, employees]);
+
+  // Resolve pending auth email once employees are populated (fixes page refresh → login redirect)
+  useEffect(() => {
+    if (!pendingAuthEmailRef.current || employees.length === 0) return;
+    const found = employees.find(e => e.email.toLowerCase() === pendingAuthEmailRef.current!);
+    if (found) {
+      setCurrentUser(found);
+      pendingAuthEmailRef.current = null;
+    }
+  }, [employees]);
 
   // Auth Operations
   const login = useCallback(async (email: string, password: string) => {
@@ -470,6 +494,12 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     const isoDate = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
     const timeStr = `${pad(today.getHours())}:${pad(today.getMinutes())}`;
 
+    // Prevent duplicate clock-in for the same day
+    const alreadyClockedIn = attendanceRecords.some(
+      r => r.employeeId === currentUser.id && r.date === isoDate
+    );
+    if (alreadyClockedIn) return;
+
     const newRecord: AttendanceRecord = {
       id: `ATT-${Date.now()}`,
       employeeId: currentUser.id,
@@ -498,7 +528,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         console.error('Network error clocking in:', err);
       }
     }
-  }, [currentUser, isLive]);
+  }, [currentUser, attendanceRecords, isLive]);
 
   const clockOut = useCallback(async () => {
     if (!currentUser) return;
@@ -516,7 +546,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       const [inH, inM] = todayRecord.clockIn.split(':').map(Number);
       const outH = today.getHours();
       const outM = today.getMinutes();
-      hours = Math.max(0.1, Number(((outH * 60 + outM) - (inH * 60 + inM)) / 60).toFixed(2));
+      hours = Math.max(0.1, Number((((outH * 60 + outM) - (inH * 60 + inM)) / 60).toFixed(2)));
     }
 
     const updatedRecord = {
@@ -540,7 +570,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     }
   }, [currentUser, attendanceRecords, isLive]);
 
-  const applyLeave = useCallback(async (data: Omit<LeaveRequest, 'id' | 'status' | 'requestedOn'>) => {
+  const applyLeave = useCallback(async (data: Omit<LeaveRequest, 'id' | 'status' | 'requestedOn' | 'employeeId'>) => {
     if (!currentUser) return;
 
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -580,9 +610,12 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
   // Mutations
   const addEmployee = useCallback(
-    async (data: Omit<Employee, 'id' | 'avatarUrl'>) => {
-      const nextNum = 1000 + employees.length + 1;
-      const id = `EMP-${nextNum}`;
+    async (data: Omit<Employee, 'id' | 'avatarUrl'>, tempPassword?: string) => {
+      const maxNum = employees.reduce((max, emp) => {
+        const match = emp.id.match(/^EMP-(\d+)$/);
+        return match ? Math.max(max, parseInt(match[1], 10)) : max;
+      }, 1000);
+      const id = `EMP-${maxNum + 1}`;
       const name = `${data.firstName} ${data.lastName}`;
       const avatarUrl = avatar(name);
 
@@ -597,12 +630,32 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       if (isLive && supabase) {
         try {
           const dbRow = mapEmployeeToDb(newEmp);
-          const { error } = await supabase.from('employees').insert(dbRow);
-          if (error) {
-            console.error('Failed to insert employee in database:', error);
+          const { error: dbError } = await supabase.from('employees').insert(dbRow);
+          if (dbError) {
+            console.error('Failed to insert employee in database:', dbError);
+            throw new Error(`Database error: ${dbError.message}`);
           }
-        } catch (err) {
-          console.error('Network error inserting employee:', err);
+
+          if (tempPassword) {
+            const tempClient = createClient(supabaseUrl!, supabaseAnonKey!, {
+              auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+                detectSessionInUrl: false
+              }
+            });
+            const { error: authError } = await tempClient.auth.signUp({
+              email: newEmp.email,
+              password: tempPassword
+            });
+            if (authError) {
+              console.error('Failed to register employee in Auth:', authError);
+              throw new Error(`Auth registration error: ${authError.message}`);
+            }
+          }
+        } catch (err: any) {
+          setEmployees((prev) => prev.filter((e) => e.id !== id));
+          throw err;
         }
       }
     },

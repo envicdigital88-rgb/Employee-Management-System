@@ -18,7 +18,7 @@ export function KpiCard({
 
 
 
-}: {label: string;value: string;icon: BoxIcon;delta?: {value: string;positive: boolean;};index?: number;accent?: boolean;}) {
+}: {label: string;value: string;icon: React.ComponentType<any>;delta?: {value: string;positive: boolean;};index?: number;accent?: boolean;}) {
   return (
     <motion.div
       initial={{

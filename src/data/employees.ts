@@ -8,6 +8,26 @@ const avatar = (seed: string) =>
 
 export const employees: Employee[] = [
 {
+  id: 'EMP-1000',
+  firstName: 'Admin',
+  lastName: 'User',
+  email: 'admin@gmail.com',
+  phone: '+1 555 555 5555',
+  avatarUrl: avatar('Admin User'),
+  departmentId: 'DEP-ENG',
+  role: 'Administrator',
+  status: 'Active',
+  employmentType: 'Full-time',
+  joinDate: '2026-07-14',
+  location: 'San Francisco, US',
+  managerId: null,
+  salary: 150000,
+  gender: 'Other',
+  dateOfBirth: '1990-01-01',
+  address: '100 Main St, San Francisco, CA',
+  isAdmin: true
+},
+{
   id: 'EMP-1001',
   firstName: 'Nadia',
   lastName: 'Karim',

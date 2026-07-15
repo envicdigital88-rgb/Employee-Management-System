@@ -248,7 +248,7 @@ export function MyLeavesPage() {
                         {l.reason}
                       </td>
                       <td className="px-5 py-3">
-                        <Badge tone={leaveStatusTone(l.status)}>{l.status}</Badge>
+                        <Badge tone={leaveStatusTone[l.status]}>{l.status}</Badge>
                       </td>
                     </tr>
                   ))
