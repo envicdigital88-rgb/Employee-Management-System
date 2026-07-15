@@ -199,6 +199,8 @@ interface HrmsState {
   
   // Mutations
   addEmployee: (e: Omit<Employee, 'id' | 'avatarUrl'>, tempPassword?: string) => Promise<void>;
+  updateEmployee: (id: string, data: Partial<Employee>) => Promise<void>;
+  deleteEmployee: (id: string) => Promise<void>;
   updateEmployeeStatus: (ids: string[], status: EmployeeStatus) => void;
   assignDepartment: (ids: string[], departmentId: string) => void;
   setLeaveStatus: (ids: string[], status: LeaveStatus, affectedRequests?: LeaveRequest[]) => void;
@@ -736,6 +738,58 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       }
     },
     [employees.length, isLive]
+  );
+
+  const updateEmployee = useCallback(
+    async (id: string, data: Partial<Employee>) => {
+      setEmployees((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, ...data } : e))
+      );
+
+      // If this is the currently logged-in user, update currentUser too
+      setCurrentUser((prev) => {
+        if (prev && prev.id === id) return { ...prev, ...data };
+        return prev;
+      });
+
+      if (isLive && supabase) {
+        try {
+          const dbRow = mapEmployeeToDb(data);
+          const { error } = await supabase.from('employees').update(dbRow).eq('id', id);
+          if (error) {
+            console.error('Failed to update employee in database:', error);
+          }
+        } catch (err) {
+          console.error('Network error updating employee:', err);
+        }
+      }
+    },
+    [isLive]
+  );
+
+  const deleteEmployee = useCallback(
+    async (id: string) => {
+      setEmployees((prev) => prev.filter((e) => e.id !== id));
+
+      // Also clean up related records in local state
+      setAttendanceRecords((prev) => prev.filter((a) => a.employeeId !== id));
+      setLeaveRequests((prev) => prev.filter((l) => l.employeeId !== id));
+      setPayrollRecords((prev) => prev.filter((p) => p.employeeId !== id));
+      setPerformanceReviews((prev) => prev.filter((r) => r.employeeId !== id));
+      setOnboardingTasks((prev) => prev.filter((o) => o.employeeId !== id));
+
+      if (isLive && supabase) {
+        try {
+          const { error } = await supabase.from('employees').delete().eq('id', id);
+          if (error) {
+            console.error('Failed to delete employee from database:', error);
+          }
+        } catch (err) {
+          console.error('Network error deleting employee:', err);
+        }
+      }
+    },
+    [isLive]
   );
 
   const updateEmployeeStatus = useCallback(
