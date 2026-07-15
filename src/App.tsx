@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { Preloader } from './components/ui/Preloader';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { HrmsProvider, useHrms } from './store/HrmsContext';
 import { AppLayout } from './layout/AppLayout';
@@ -95,9 +96,15 @@ function AppWithToast() {
 }
 
 export function App() {
+  const [appReady, setAppReady] = useState(false);
+
   return (
     <HrmsProvider>
-      <AppWithToast />
+      {!appReady && <Preloader onComplete={() => setAppReady(true)} />}
+      {/* Render app tree even while preloader is visible so data can load in background */}
+      <div style={{ visibility: appReady ? 'visible' : 'hidden', height: appReady ? undefined : 0, overflow: appReady ? undefined : 'hidden' }}>
+        <AppWithToast />
+      </div>
     </HrmsProvider>
   );
 }
