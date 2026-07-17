@@ -292,6 +292,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
   }, [notifications]);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [isLive, setIsLive] = useState<boolean>(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
@@ -312,6 +313,12 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         console.log('Supabase not configured. Running in Demo Mode.');
         setIsLive(false);
         setIsLoading(false);
+        // In demo mode, resolve auth from localStorage immediately
+        const demoEmail = window.localStorage.getItem('DEMO_USER_EMAIL');
+        if (!demoEmail) {
+          setAuthLoading(false);
+        }
+        // If demoEmail exists, auth will be resolved in the auth effect below
         return;
       }
 
@@ -388,27 +395,39 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
   // Listen for Supabase Authentication status changes
   useEffect(() => {
     if (!isLive || !supabase) {
-      // Auto-login from localStorage if set in Demo Mode
+      // Demo Mode: auto-login from localStorage
       const demoEmail = window.localStorage.getItem('DEMO_USER_EMAIL');
       if (demoEmail) {
         const found = employees.find(e => e.email.toLowerCase() === demoEmail.toLowerCase());
-        if (found) setCurrentUser(found);
-        else pendingAuthEmailRef.current = demoEmail; // employees not yet loaded
+        if (found) {
+          setCurrentUser(found);
+          setAuthLoading(false);
+        } else {
+          pendingAuthEmailRef.current = demoEmail; // employees not yet loaded
+          // authLoading will be resolved once employees are populated
+        }
+      } else {
+        setAuthLoading(false);
       }
       return;
     }
 
-    // Get current auth session — employees may still be loading at this point
+    // Live mode: get current auth session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
         const email = session.user.email.toLowerCase();
         const found = employees.find(e => e.email.toLowerCase() === email);
         if (found) {
           setCurrentUser(found);
+          setAuthLoading(false);
         } else {
           // employees not loaded yet — save and resolve later
           pendingAuthEmailRef.current = email;
+          // authLoading stays true until resolved in the employees effect
         }
+      } else {
+        // No session — user is definitely not logged in
+        setAuthLoading(false);
       }
     });
 
@@ -419,12 +438,14 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         if (found) {
           setCurrentUser(found);
           pendingAuthEmailRef.current = null;
+          setAuthLoading(false);
         } else {
           pendingAuthEmailRef.current = email;
         }
       } else {
         pendingAuthEmailRef.current = null;
         setCurrentUser(null);
+        setAuthLoading(false);
       }
     });
 
@@ -441,6 +462,8 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       setCurrentUser(found);
       pendingAuthEmailRef.current = null;
     }
+    // Whether found or not, once employees are loaded we know the auth result
+    setAuthLoading(false);
   }, [employees]);
 
   // Auth Operations
@@ -995,7 +1018,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       positions,
       onboardingTasks,
       activityFeed,
-      isLoading,
+      isLoading: isLoading || authLoading,
       isLive,
       connectionError,
       currentUser,
@@ -1038,6 +1061,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       onboardingTasks,
       activityFeed,
       isLoading,
+      authLoading,
       isLive,
       connectionError,
       currentUser,
