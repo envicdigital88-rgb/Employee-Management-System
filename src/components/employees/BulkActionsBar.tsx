@@ -4,7 +4,6 @@ import { DownloadIcon, UserCogIcon, Building2Icon, XIcon, Trash2Icon, ShieldIcon
 import { Button } from '../ui/Button';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { useHrms } from '../../store/HrmsContext';
-import { departments } from '../../data/departments';
 import { EmployeeStatus } from '../../types';
 import { showToast } from '../ui/Toast';
 
@@ -13,7 +12,7 @@ export function BulkActionsBar({
   onClear,
   onExport
 }: {selectedIds: string[]; onClear: () => void; onExport: () => void;}) {
-  const { employees, updateEmployeeStatus, assignDepartment, deleteEmployee } = useHrms();
+  const { employees, departments, updateEmployeeStatus, assignDepartment, deleteEmployee } = useHrms();
   const [statusVal, setStatusVal] = useState<EmployeeStatus | ''>('');
   const [deptVal, setDeptVal] = useState('');
 

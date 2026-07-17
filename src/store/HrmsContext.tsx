@@ -49,6 +49,22 @@ const mapDepartmentFromDb = (d: any): Department => ({
   colorHex: d.color_hex,
 });
 
+const mapDepartmentToDb = (d: Partial<Department>): Record<string, unknown> => {
+  const res: Record<string, unknown> = {};
+  if (d.id !== undefined) res.id = d.id;
+  if (d.name !== undefined) res.name = d.name;
+  if (d.headEmployeeId !== undefined) res.head_employee_id = d.headEmployeeId;
+  if (d.budget !== undefined) res.budget = d.budget;
+  if (d.location !== undefined) res.location = d.location;
+  if (d.colorHex !== undefined) res.color_hex = d.colorHex;
+  return res;
+};
+
+const DEPARTMENT_COLORS = [
+  '#22d3ee', '#a78bfa', '#f472b6', '#34d399', '#fbbf24',
+  '#60a5fa', '#f87171', '#38bdf8', '#fb923c', '#4ade80'
+];
+
 const mapEmployeeFromDb = (e: any): Employee => ({
   id: e.id,
   firstName: e.first_name,
@@ -202,6 +218,7 @@ interface HrmsState {
   isAdmin: boolean;
   
   // Mutations
+  addDepartment: (data: Omit<Department, 'colorHex'> & { colorHex?: string }) => Promise<void>;
   addEmployee: (e: Omit<Employee, 'avatarUrl'>, tempPassword?: string) => Promise<void>;
   updateEmployee: (id: string, data: Partial<Employee>) => Promise<void>;
   deleteEmployee: (id: string) => Promise<void>;
@@ -700,6 +717,52 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
   }, [currentUser, isLive]);
 
   // Mutations
+  const addDepartment = useCallback(
+    async (data: Omit<Department, 'colorHex'> & { colorHex?: string }) => {
+      const id = data.id.trim();
+      if (!id) {
+        throw new Error('Department ID cannot be empty.');
+      }
+      if (!data.name.trim()) {
+        throw new Error('Department name is required.');
+      }
+
+      const exists = departments.some(
+        (d) => d.id.trim().toLowerCase() === id.toLowerCase()
+      );
+      if (exists) {
+        throw new Error(`Department ID "${id}" is already in use.`);
+      }
+
+      const newDept: Department = {
+        id,
+        name: data.name.trim(),
+        headEmployeeId: data.headEmployeeId ?? null,
+        budget: Number(data.budget) || 0,
+        location: data.location.trim() || 'HQ',
+        colorHex: data.colorHex ?? DEPARTMENT_COLORS[departments.length % DEPARTMENT_COLORS.length]
+      };
+
+      setDepartments((prev) => [...prev, newDept]);
+
+      if (isLive && supabase) {
+        try {
+          const { error } = await supabase
+            .from('departments')
+            .insert(mapDepartmentToDb(newDept));
+          if (error) {
+            setDepartments((prev) => prev.filter((d) => d.id !== id));
+            throw new Error(`Database error: ${error.message}`);
+          }
+        } catch (err: unknown) {
+          setDepartments((prev) => prev.filter((d) => d.id !== id));
+          throw err;
+        }
+      }
+    },
+    [departments, isLive]
+  );
+
   const addEmployee = useCallback(
     async (data: Omit<Employee, 'avatarUrl'>, tempPassword?: string) => {
       const id = data.id.trim();
@@ -1017,6 +1080,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       connectionError,
       currentUser,
       isAdmin,
+      addDepartment,
       addEmployee,
       updateEmployee,
       deleteEmployee,
@@ -1060,6 +1124,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       connectionError,
       currentUser,
       isAdmin,
+      addDepartment,
       addEmployee,
       updateEmployee,
       deleteEmployee,

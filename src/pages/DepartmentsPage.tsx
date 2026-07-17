@@ -5,25 +5,37 @@ import {
   UsersIcon,
   WalletIcon,
   MapPinIcon,
-  ChevronRightIcon } from
-'lucide-react';
+  ChevronRightIcon,
+  PlusIcon
+} from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
 import { Avatar } from '../components/ui/Avatar';
 import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { AddDepartmentModal } from '../components/departments/AddDepartmentModal';
 import { useHrms } from '../store/HrmsContext';
 import { fullName } from '../data/employees';
 import { compactCurrency } from '../lib/format';
+
 export function DepartmentsPage() {
   const navigate = useNavigate();
   const { employees, departments, getEmployee } = useHrms();
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+
   return (
     <div>
       <PageHeader
         title="Departments"
-        description={`${departments.length} departments · ${employees.length} total members`} />
-      
+        description={`${departments.length} departments · ${employees.length} total members`}
+        actions={
+          <Button variant="primary" onClick={() => setAddOpen(true)}>
+            <PlusIcon className="h-4 w-4" />
+            Add department
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {departments.map((d, i) => {
@@ -162,6 +174,7 @@ export function DepartmentsPage() {
 
         })}
       </div>
-    </div>);
 
+      <AddDepartmentModal open={addOpen} onClose={() => setAddOpen(false)} />
+    </div>);
 }

@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { useHrms } from '../../store/HrmsContext';
-import { departments } from '../../data/departments';
 import { EmployeeStatus, EmploymentType } from '../../types';
 const fieldClass =
 'h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content placeholder:text-content-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30';
@@ -14,14 +13,14 @@ export function AddEmployeeModal({
 
 
 }: {open: boolean;onClose: () => void;}) {
-  const { addEmployee } = useHrms();
+  const { addEmployee, departments } = useHrms();
   const [empId, setEmpId] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [preferredName, setPreferredName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
-  const [departmentId, setDepartmentId] = useState(departments[0].id);
+  const [departmentId, setDepartmentId] = useState('');
   const [employmentType, setEmploymentType] =
     useState<EmploymentType>('Full-time');
   const [status, setStatus] = useState<EmployeeStatus>('Probation');
@@ -30,6 +29,18 @@ export function AddEmployeeModal({
   const [tempPassword, setTempPassword] = useState('Password@123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (departments.length === 0) {
+      setDepartmentId('');
+      return;
+    }
+    const stillValid = departments.some((d) => d.id === departmentId);
+    if (!departmentId || !stillValid) {
+      setDepartmentId(departments[0].id);
+    }
+  }, [departments, departmentId, open]);
+
   const reset = () => {
     setEmpId('');
     setFirstName('');
@@ -50,7 +61,8 @@ export function AddEmployeeModal({
       !lastName.trim() ||
       !email.trim() ||
       !role.trim() ||
-      !tempPassword.trim()
+      !tempPassword.trim() ||
+      !departmentId
     ) {
       setError('Please complete all required fields.');
       return;
@@ -179,12 +191,17 @@ export function AddEmployeeModal({
               id="de"
               className={fieldClass}
               value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}>
-              
-              {departments.map((d) =>
-              <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
+              onChange={(e) => setDepartmentId(e.target.value)}
+              disabled={departments.length === 0}
+            >
+              {departments.length === 0 ? (
+                <option value="">No departments — add one first</option>
+              ) : (
+                departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))
               )}
             </select>
           </div>
