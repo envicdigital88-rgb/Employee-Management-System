@@ -152,6 +152,8 @@ INSERT INTO departments (id, name, budget, location, color_hex) VALUES ('DEP-MKT
 INSERT INTO departments (id, name, budget, location, color_hex) VALUES ('DEP-SAL', 'Sales', 1500000, 'Remote', '#34d399');
 INSERT INTO departments (id, name, budget, location, color_hex) VALUES ('DEP-HR', 'Human Resources', 560000, 'HQ', '#fbbf24');
 INSERT INTO departments (id, name, budget, location, color_hex) VALUES ('DEP-OPS', 'Operations', 940000, 'HQ', '#60a5fa');
+INSERT INTO departments (id, name, budget, location, color_hex) VALUES ('DEP-BD', 'Business Development', 600000, 'Remote / HQ', '#f87171');
+
 
 -- Seeding Employees
 INSERT INTO employees (id, first_name, last_name, email, phone, avatar_url, department_id, role, status, employment_type, join_date, location, manager_id, salary, gender, date_of_birth, address) VALUES ('EMP-1001', 'Nadia', 'Karim', 'nadia.karim@envicdigital.com', '+1 415 555 0101', 'https://api.dicebear.com/7.x/notionists/svg?seed=Nadia%20Karim&backgroundColor=14171c,1a1d23,262a31&radius=50', 'DEP-ENG', 'VP of Engineering', 'Active', 'Full-time', '2019-03-12', 'San Francisco, US', NULL, 245000, 'Female', '1986-07-21', '210 Mission St, San Francisco, CA');

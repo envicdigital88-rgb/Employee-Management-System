@@ -197,6 +197,8 @@ export function AttendancePage() {
                 <option value="all">All Shifts</option>
                 {[
                   'Morning Shift (9:00 AM - 5:00 PM)',
+                  'Mid Shift (10:30 AM - 6:30 PM)',
+                  'Afternoon Shift (1:30 PM - 10:30 PM)',
                   'Evening Shift (5:00 PM - 1:00 AM)',
                   'Night Shift (1:00 AM - 9:00 AM)',
                   'Flexible Shift'
