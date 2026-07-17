@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { DatabaseIcon, LockIcon, MailIcon, ShieldCheckIcon, UserIcon, ArrowRightIcon } from 'lucide-react';
 import { useHrms } from '../store/HrmsContext';
 import { Card } from '../components/ui/Card';
@@ -14,15 +14,24 @@ const labelClass = 'mb-1.5 block text-xs font-medium text-content-muted';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login, resetPassword, isLive } = useHrms();
+  const location = useLocation();
+  const { login, resetPassword, isLive, currentUser, isLoading } = useHrms();
 
+  // All hooks must be declared before any conditional returns
   const [isForgot, setIsForgot] = useState(false);
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  // Where to go after login (the page that sent us here, or dashboard)
+  const from: string = (location.state as any)?.from ?? '/';
+
+  // If already authenticated, skip login page entirely
+  if (!isLoading && currentUser) {
+    return <Navigate to={from === '/login' ? '/' : from} replace />;
+  }
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +46,7 @@ export function LoginPage() {
         setIsForgot(false);
       } else {
         await login(email, password);
-        navigate('/');
+        navigate(from, { replace: true });
       }
     } catch (err: any) {
       console.error(err);
@@ -52,7 +61,7 @@ export function LoginPage() {
     setLoading(true);
     try {
       await login(selectedEmail, 'password');
-      navigate('/');
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Quick login failed.');
     } finally {

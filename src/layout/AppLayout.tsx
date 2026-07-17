@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Outlet, useLocation, Link, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -12,15 +12,9 @@ export function AppLayout() {
   const [addOpen, setAddOpen] = useState(false);
   
   const location = useLocation();
-  const navigate = useNavigate();
   const { isLive, currentUser, isLoading } = useHrms();
 
-  useEffect(() => {
-    if (!isLoading && !currentUser) {
-      navigate('/login');
-    }
-  }, [currentUser, isLoading, navigate]);
-
+  // While we're figuring out auth, show the spinner
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas">
@@ -32,8 +26,9 @@ export function AppLayout() {
     );
   }
 
+  // Auth resolved and no user — send to login, preserve the page they wanted
   if (!currentUser) {
-    return null;
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
   return (

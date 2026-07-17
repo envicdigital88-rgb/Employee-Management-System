@@ -306,38 +306,47 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     return !!currentUser.isAdmin || currentUser.email === 'nadia.karim@envicdigital.com';
   }, [currentUser]);
 
-  // Initial Fetch Effect
+  // ─── Initial load: fetch all data + restore auth session ────────────────────
   useEffect(() => {
-    async function loadData() {
+    async function initialize() {
+      // ── DEMO MODE (no Supabase credentials) ──────────────────────────────────
       if (!isSupabaseConfigured() || !supabase) {
         console.log('Supabase not configured. Running in Demo Mode.');
         setIsLive(false);
-        setIsLoading(false);
-        // In demo mode, resolve auth from localStorage immediately
+
         const demoEmail = window.localStorage.getItem('DEMO_USER_EMAIL');
-        if (!demoEmail) {
-          setAuthLoading(false);
+        if (demoEmail) {
+          // seedEmployees are already in initial state — resolve immediately
+          const found = employees.find(e => e.email.toLowerCase() === demoEmail.toLowerCase());
+          if (found) setCurrentUser(found);
+          else window.localStorage.removeItem('DEMO_USER_EMAIL'); // stale key
         }
-        // If demoEmail exists, auth will be resolved in the auth effect below
+
+        setIsLoading(false);
+        setAuthLoading(false);
         return;
       }
 
+      // ── LIVE MODE (Supabase configured) ──────────────────────────────────────
       try {
         setIsLoading(true);
         console.log('Connecting to live Supabase database...');
 
+        // Fetch DB tables AND active session in parallel (kept separate to preserve TS types)
         const [
+          sessionResult,
           { data: dbDepts, error: errDepts },
-          { data: dbEmps, error: errEmps },
+          { data: dbEmps,  error: errEmps  },
           { data: dbLeaves, error: errLeaves },
           { data: dbCands, error: errCands },
-          { data: dbAtt, error: errAtt },
-          { data: dbPay, error: errPay },
+          { data: dbAtt,  error: errAtt  },
+          { data: dbPay,  error: errPay  },
           { data: dbPerf, error: errPerf },
-          { data: dbPos, error: errPos },
-          { data: dbOnb, error: errOnb },
-          { data: dbAct, error: errAct }
+          { data: dbPos,  error: errPos  },
+          { data: dbOnb,  error: errOnb  },
+          { data: dbAct,  error: errAct  }
         ] = await Promise.all([
+          supabase.auth.getSession(),          // index 0 — typed as AuthResponse
           supabase.from('departments').select('*'),
           supabase.from('employees').select('*'),
           supabase.from('leave_requests').select('*'),
@@ -348,88 +357,70 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
           supabase.from('positions').select('*'),
           supabase.from('onboarding_tasks').select('*'),
           supabase.from('activity_feed').select('*')
-        ]);
+        ] as const);
 
-        if (
-          errDepts || errEmps || errLeaves || errCands || 
-          errAtt || errPay || errPerf || errPos || errOnb || errAct
-        ) {
-          const errors = [
-            errDepts, errEmps, errLeaves, errCands, 
-            errAtt, errPay, errPerf, errPos, errOnb, errAct
-          ].filter(Boolean).map(e => e?.message).join(', ');
-          throw new Error(errors || 'Error querying database tables.');
+        if (errDepts || errEmps || errLeaves || errCands ||
+            errAtt   || errPay  || errPerf   || errPos  || errOnb || errAct) {
+          const msg = [errDepts, errEmps, errLeaves, errCands,
+                       errAtt, errPay, errPerf, errPos, errOnb, errAct]
+            .filter(Boolean).map(e => e?.message).join(', ');
+          throw new Error(msg || 'Error querying database tables.');
         }
 
         if (dbDepts && dbEmps) {
           const loadedDepts = dbDepts.map(mapDepartmentFromDb);
-          const loadedEmps = dbEmps.map(mapEmployeeFromDb);
+          const loadedEmps  = dbEmps.map(mapEmployeeFromDb);
 
           setDepartments(loadedDepts);
           setEmployees(loadedEmps);
           if (dbLeaves) setLeaveRequests(dbLeaves.map(mapLeaveFromDb));
-          if (dbCands) setCandidates(dbCands.map(mapCandidateFromDb));
-          if (dbAtt) setAttendanceRecords(dbAtt.map(mapAttendanceFromDb));
-          if (dbPay) setPayrollRecords(dbPay.map(mapPayrollFromDb));
-          if (dbPerf) setPerformanceReviews(dbPerf.map(mapPerformanceFromDb));
-          if (dbPos) setPositions(dbPos.map(mapPositionFromDb));
-          if (dbOnb) setOnboardingTasks(dbOnb.map(mapOnboardingFromDb));
-          if (dbAct) setActivityFeed(dbAct.map(mapActivityFromDb));
+          if (dbCands)  setCandidates(dbCands.map(mapCandidateFromDb));
+          if (dbAtt)    setAttendanceRecords(dbAtt.map(mapAttendanceFromDb));
+          if (dbPay)    setPayrollRecords(dbPay.map(mapPayrollFromDb));
+          if (dbPerf)   setPerformanceReviews(dbPerf.map(mapPerformanceFromDb));
+          if (dbPos)    setPositions(dbPos.map(mapPositionFromDb));
+          if (dbOnb)    setOnboardingTasks(dbOnb.map(mapOnboardingFromDb));
+          if (dbAct)    setActivityFeed(dbAct.map(mapActivityFromDb));
+
+          // ── Restore session ── now we have employees in `loadedEmps`
+          const session = sessionResult.data?.session;
+          if (session?.user?.email) {
+            const email = session.user.email.toLowerCase();
+            const found = loadedEmps.find(e => e.email.toLowerCase() === email);
+            if (found) {
+              setCurrentUser(found);
+              console.log('Session restored for:', email);
+            }
+          }
 
           setIsLive(true);
           setConnectionError(null);
-          console.log('Successfully loaded all tables from Supabase PostgreSQL!');
+          console.log('Successfully loaded all tables from Supabase!');
         }
       } catch (err: any) {
-        console.error('Failed to query Supabase tables, falling back to Demo Mode:', err);
+        console.error('Failed to load from Supabase, falling back to Demo Mode:', err);
         setConnectionError(err.message || 'Failed to connect to database');
         setIsLive(false);
+
+        // Try to restore demo session even after a DB error
+        const demoEmail = window.localStorage.getItem('DEMO_USER_EMAIL');
+        if (demoEmail) {
+          const found = employees.find(e => e.email.toLowerCase() === demoEmail.toLowerCase());
+          if (found) setCurrentUser(found);
+        }
       } finally {
         setIsLoading(false);
+        setAuthLoading(false);
       }
     }
 
-    loadData();
+    initialize();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Listen for Supabase Authentication status changes
+  // ─── Subscribe to live auth state changes (sign-in / sign-out events) ────────
   useEffect(() => {
-    if (!isLive || !supabase) {
-      // Demo Mode: auto-login from localStorage
-      const demoEmail = window.localStorage.getItem('DEMO_USER_EMAIL');
-      if (demoEmail) {
-        const found = employees.find(e => e.email.toLowerCase() === demoEmail.toLowerCase());
-        if (found) {
-          setCurrentUser(found);
-          setAuthLoading(false);
-        } else {
-          pendingAuthEmailRef.current = demoEmail; // employees not yet loaded
-          // authLoading will be resolved once employees are populated
-        }
-      } else {
-        setAuthLoading(false);
-      }
-      return;
-    }
-
-    // Live mode: get current auth session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.email) {
-        const email = session.user.email.toLowerCase();
-        const found = employees.find(e => e.email.toLowerCase() === email);
-        if (found) {
-          setCurrentUser(found);
-          setAuthLoading(false);
-        } else {
-          // employees not loaded yet — save and resolve later
-          pendingAuthEmailRef.current = email;
-          // authLoading stays true until resolved in the employees effect
-        }
-      } else {
-        // No session — user is definitely not logged in
-        setAuthLoading(false);
-      }
-    });
+    if (!isLive || !supabase) return;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user?.email) {
@@ -438,23 +429,19 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         if (found) {
           setCurrentUser(found);
           pendingAuthEmailRef.current = null;
-          setAuthLoading(false);
         } else {
           pendingAuthEmailRef.current = email;
         }
       } else {
         pendingAuthEmailRef.current = null;
         setCurrentUser(null);
-        setAuthLoading(false);
       }
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [isLive, employees]);
 
-  // Resolve pending auth email once employees are populated (fixes page refresh → login redirect)
+  // ─── Resolve pending auth once employees array is populated ──────────────────
   useEffect(() => {
     if (!pendingAuthEmailRef.current || employees.length === 0) return;
     const found = employees.find(e => e.email.toLowerCase() === pendingAuthEmailRef.current!);
@@ -462,9 +449,8 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       setCurrentUser(found);
       pendingAuthEmailRef.current = null;
     }
-    // Whether found or not, once employees are loaded we know the auth result
-    setAuthLoading(false);
   }, [employees]);
+
 
   // Auth Operations
   const login = useCallback(async (email: string, password: string) => {
