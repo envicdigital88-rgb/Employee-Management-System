@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, useLocation, Link, Navigate } from 'react-router-dom';
+import { useLocation, useOutlet, Link, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -12,6 +12,9 @@ export function AppLayout() {
   const [addOpen, setAddOpen] = useState(false);
   
   const location = useLocation();
+  const outlet = useOutlet({
+    openAddEmployee: () => setAddOpen(true)
+  });
   const { isLive, currentUser, isLoading } = useHrms();
 
   // While we're figuring out auth, show the spinner
@@ -106,7 +109,7 @@ export function AppLayout() {
         
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-[1400px]">
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={location.pathname}
                 initial={{
@@ -123,12 +126,7 @@ export function AppLayout() {
                 transition={{
                   duration: 0.25
                 }}>
-                
-                <Outlet
-                  context={{
-                    openAddEmployee: () => setAddOpen(true)
-                  }} />
-                
+                {outlet}
               </motion.div>
             </AnimatePresence>
           </div>
