@@ -153,6 +153,7 @@ INSERT INTO departments (id, name, budget, location, color_hex) VALUES ('DEP-SAL
 INSERT INTO departments (id, name, budget, location, color_hex) VALUES ('DEP-HR', 'Human Resources', 560000, 'HQ', '#fbbf24');
 INSERT INTO departments (id, name, budget, location, color_hex) VALUES ('DEP-OPS', 'Operations', 940000, 'HQ', '#60a5fa');
 INSERT INTO departments (id, name, budget, location, color_hex) VALUES ('DEP-BD', 'Business Development', 600000, 'Remote / HQ', '#f87171');
+INSERT INTO departments (id, name, budget, location, color_hex) VALUES ('DEP-DS', 'Digital Solution', 500000, 'HQ', '#38bdf8');
 
 
 -- Seeding Employees

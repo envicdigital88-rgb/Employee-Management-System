@@ -56,6 +56,14 @@ export const departments: Department[] = [
   budget: 600000,
   location: 'Remote / HQ',
   colorHex: '#f87171'
+},
+{
+  id: 'DEP-DS',
+  name: 'Digital Solution',
+  headEmployeeId: null,
+  budget: 500000,
+  location: 'HQ',
+  colorHex: '#38bdf8'
 }];
 
 
