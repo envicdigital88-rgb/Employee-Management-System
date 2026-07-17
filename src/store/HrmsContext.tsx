@@ -53,6 +53,7 @@ const mapEmployeeFromDb = (e: any): Employee => ({
   id: e.id,
   firstName: e.first_name,
   lastName: e.last_name,
+  preferredName: e.preferred_name || null,
   email: e.email,
   phone: e.phone,
   avatarUrl: e.avatar_url,
@@ -76,6 +77,7 @@ const mapEmployeeToDb = (e: Partial<Employee>): any => {
   if (e.id !== undefined) res.id = e.id;
   if (e.firstName !== undefined) res.first_name = e.firstName;
   if (e.lastName !== undefined) res.last_name = e.lastName;
+  if (e.preferredName !== undefined) res.preferred_name = e.preferredName;
   if (e.email !== undefined) res.email = e.email;
   if (e.phone !== undefined) res.phone = e.phone;
   if (e.avatarUrl !== undefined) res.avatar_url = e.avatarUrl;

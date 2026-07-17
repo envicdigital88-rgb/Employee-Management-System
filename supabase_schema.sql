@@ -28,6 +28,7 @@ CREATE TABLE employees (
   id VARCHAR(50) PRIMARY KEY,
   first_name VARCHAR(255) NOT NULL,
   last_name VARCHAR(255) NOT NULL,
+  preferred_name VARCHAR(255),
   email VARCHAR(255) UNIQUE NOT NULL,
   phone VARCHAR(50) NOT NULL,
   avatar_url TEXT NOT NULL,

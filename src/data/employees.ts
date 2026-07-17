@@ -553,6 +553,6 @@ employees.forEach((emp, i) => {
   emp.shift = shifts[i % shifts.length];
 });
 
-export const fullName = (e: Employee): string => `${e.firstName} ${e.lastName}`;
+export const fullName = (e: Employee): string => e.preferredName || `${e.firstName} ${e.lastName}`;
 export const getEmployee = (id: string | null): Employee | undefined =>
 employees.find((e) => e.id === id);

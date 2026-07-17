@@ -103,7 +103,7 @@ export function ProfilePage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                   <label className={labelClass}>First Name</label>
                   <input className={`${fieldClass} opacity-60 cursor-not-allowed`} value={currentUser.firstName} disabled />
@@ -111,6 +111,10 @@ export function ProfilePage() {
                 <div>
                   <label className={labelClass}>Last Name</label>
                   <input className={`${fieldClass} opacity-60 cursor-not-allowed`} value={currentUser.lastName} disabled />
+                </div>
+                <div>
+                  <label className={labelClass}>Preferred Name</label>
+                  <input className={`${fieldClass} opacity-60 cursor-not-allowed`} value={currentUser.preferredName || '—'} disabled />
                 </div>
               </div>
 

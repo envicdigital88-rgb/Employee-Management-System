@@ -115,7 +115,7 @@ export function EmployeeDashboard() {
       {/* Welcome banner */}
       <div className="rounded-2xl border border-line bg-surface p-6 relative overflow-hidden">
         <div className="relative z-10 max-w-lg">
-          <h2 className="text-xl font-bold text-content">Welcome back, {currentUser.firstName}!</h2>
+          <h2 className="text-xl font-bold text-content">Welcome back, {currentUser.preferredName || currentUser.firstName}!</h2>
           <p className="mt-1 text-sm text-content-muted leading-relaxed">
             Check your clock-in status, review leave balances, and view your upcoming schedule.
           </p>

@@ -17,6 +17,7 @@ export interface Employee {
   id: string; // employee_id (PK)  e.g. "EMP-1042"
   firstName: string;
   lastName: string;
+  preferredName?: string | null;
   email: string;
   phone: string;
   avatarUrl: string;

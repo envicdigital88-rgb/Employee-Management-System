@@ -18,6 +18,7 @@ export function AddEmployeeModal({
   const [empId, setEmpId] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [preferredName, setPreferredName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
   const [departmentId, setDepartmentId] = useState(departments[0].id);
@@ -33,6 +34,7 @@ export function AddEmployeeModal({
     setEmpId('');
     setFirstName('');
     setLastName('');
+    setPreferredName('');
     setEmail('');
     setRole('');
     setSalary('');
@@ -64,6 +66,7 @@ export function AddEmployeeModal({
         id: empId.trim(),
         firstName: firstName.trim(),
         lastName: lastName.trim(),
+        preferredName: preferredName.trim() || null,
         email: email.trim(),
         phone: '+1 415 555 0000',
         departmentId,
@@ -90,7 +93,7 @@ export function AddEmployeeModal({
   return (
     <Modal open={open} onClose={onClose} title="Add employee" size="lg">
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={labelClass} htmlFor="empId">
               Employee ID *
@@ -102,6 +105,19 @@ export function AddEmployeeModal({
               onChange={(e) => setEmpId(e.target.value)}
               placeholder="e.g. EMP-1045" />
           </div>
+          <div>
+            <label className={labelClass} htmlFor="preferredName">
+              Preferred Name
+            </label>
+            <input
+              id="preferredName"
+              className={fieldClass}
+              value={preferredName}
+              onChange={(e) => setPreferredName(e.target.value)}
+              placeholder="e.g. Jane" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={labelClass} htmlFor="fn">
               First name *
