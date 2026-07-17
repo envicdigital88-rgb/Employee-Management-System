@@ -15,6 +15,7 @@ export function AddEmployeeModal({
 
 }: {open: boolean;onClose: () => void;}) {
   const { addEmployee } = useHrms();
+  const [empId, setEmpId] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -29,6 +30,7 @@ export function AddEmployeeModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const reset = () => {
+    setEmpId('');
     setFirstName('');
     setLastName('');
     setEmail('');
@@ -41,6 +43,7 @@ export function AddEmployeeModal({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (
+      !empId.trim() ||
       !firstName.trim() ||
       !lastName.trim() ||
       !email.trim() ||
@@ -58,6 +61,7 @@ export function AddEmployeeModal({
     setError('');
     try {
       await addEmployee({
+        id: empId.trim(),
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
@@ -86,7 +90,18 @@ export function AddEmployeeModal({
   return (
     <Modal open={open} onClose={onClose} title="Add employee" size="lg">
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label className={labelClass} htmlFor="empId">
+              Employee ID *
+            </label>
+            <input
+              id="empId"
+              className={fieldClass}
+              value={empId}
+              onChange={(e) => setEmpId(e.target.value)}
+              placeholder="e.g. EMP-1045" />
+          </div>
           <div>
             <label className={labelClass} htmlFor="fn">
               First name *

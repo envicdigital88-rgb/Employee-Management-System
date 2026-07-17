@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { DatabaseIcon, LockIcon, MailIcon, ShieldCheckIcon, UserIcon, ArrowRightIcon } from 'lucide-react';
+import { LockIcon, MailIcon, ShieldCheckIcon, ArrowRightIcon } from 'lucide-react';
 import { useHrms } from '../store/HrmsContext';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';

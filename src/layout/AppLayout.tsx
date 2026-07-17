@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Outlet, useLocation, Link, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Sidebar } from './Sidebar';

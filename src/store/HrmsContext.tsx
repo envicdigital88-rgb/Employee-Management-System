@@ -200,7 +200,7 @@ interface HrmsState {
   isAdmin: boolean;
   
   // Mutations
-  addEmployee: (e: Omit<Employee, 'id' | 'avatarUrl'>, tempPassword?: string) => Promise<void>;
+  addEmployee: (e: Omit<Employee, 'avatarUrl'>, tempPassword?: string) => Promise<void>;
   updateEmployee: (id: string, data: Partial<Employee>) => Promise<void>;
   deleteEmployee: (id: string) => Promise<void>;
   updateEmployeeStatus: (ids: string[], status: EmployeeStatus) => void;
@@ -699,12 +699,18 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
   // Mutations
   const addEmployee = useCallback(
-    async (data: Omit<Employee, 'id' | 'avatarUrl'>, tempPassword?: string) => {
-      const maxNum = employees.reduce((max, emp) => {
-        const match = emp.id.match(/^EMP-(\d+)$/);
-        return match ? Math.max(max, parseInt(match[1], 10)) : max;
-      }, 1000);
-      const id = `EMP-${maxNum + 1}`;
+    async (data: Omit<Employee, 'avatarUrl'>, tempPassword?: string) => {
+      const id = data.id.trim();
+      if (!id) {
+        throw new Error('Employee ID cannot be empty.');
+      }
+
+      // Check uniqueness of the Employee ID (case-insensitive check)
+      const exists = employees.some(e => e.id.trim().toLowerCase() === id.toLowerCase());
+      if (exists) {
+        throw new Error(`Employee ID "${id}" is already in use by another employee.`);
+      }
+
       const name = `${data.firstName} ${data.lastName}`;
       const avatarUrl = avatar(name);
 
@@ -748,7 +754,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [employees.length, isLive]
+    [employees, isLive]
   );
 
   const updateEmployee = useCallback(
