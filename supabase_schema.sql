@@ -43,6 +43,8 @@ CREATE TABLE employees (
   gender VARCHAR(50) NOT NULL,
   date_of_birth DATE NOT NULL,
   address TEXT NOT NULL,
+  nic VARCHAR(20) DEFAULT '',
+  is_active BOOLEAN DEFAULT TRUE,
   is_admin BOOLEAN DEFAULT FALSE,
   shift VARCHAR(100) DEFAULT 'Morning Shift (9:00 AM - 5:00 PM)'
 );

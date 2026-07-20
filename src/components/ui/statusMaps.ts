@@ -13,6 +13,7 @@ export const employeeStatusTone: Record<EmployeeStatus, Tone> = {
   Active: 'green',
   'On Leave': 'amber',
   Probation: 'blue',
+  Permanent: 'green',
   Terminated: 'red'
 };
 

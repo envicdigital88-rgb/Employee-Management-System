@@ -84,6 +84,8 @@ const mapEmployeeFromDb = (e: any): Employee => ({
   gender: e.gender,
   dateOfBirth: e.date_of_birth,
   address: e.address,
+  nic: e.nic || '',
+  isActive: e.is_active !== false,
   isAdmin: !!e.is_admin,
   shift: e.shift || 'Morning Shift (9:00 AM - 5:00 PM)',
 });
@@ -108,6 +110,8 @@ const mapEmployeeToDb = (e: Partial<Employee>): any => {
   if (e.gender !== undefined) res.gender = e.gender;
   if (e.dateOfBirth !== undefined) res.date_of_birth = e.dateOfBirth;
   if (e.address !== undefined) res.address = e.address;
+  if (e.nic !== undefined) res.nic = e.nic;
+  if (e.isActive !== undefined) res.is_active = e.isActive;
   if (e.isAdmin !== undefined) res.is_admin = e.isAdmin;
   if (e.shift !== undefined) res.shift = e.shift;
   return res;
@@ -219,10 +223,13 @@ interface HrmsState {
   
   // Mutations
   addDepartment: (data: Omit<Department, 'colorHex'> & { colorHex?: string }) => Promise<void>;
+  updateDepartment: (id: string, data: Partial<Omit<Department, 'id'>>) => Promise<void>;
+  deleteDepartment: (id: string) => Promise<void>;
   addEmployee: (e: Omit<Employee, 'avatarUrl'>, tempPassword?: string) => Promise<void>;
   updateEmployee: (id: string, data: Partial<Employee>) => Promise<void>;
   deleteEmployee: (id: string) => Promise<void>;
-  updateEmployeeStatus: (ids: string[], status: EmployeeStatus) => void;
+  updateEmployeeStatus: (ids: string[], status: EmployeeStatus) => Promise<void>;
+  setEmployeeActive: (ids: string[], isActive: boolean) => Promise<void>;
   assignDepartment: (ids: string[], departmentId: string) => void;
   setLeaveStatus: (ids: string[], status: LeaveStatus, affectedRequests?: LeaveRequest[]) => void;
   moveCandidate: (id: string, stage: CandidateStage) => void;
@@ -258,6 +265,8 @@ const HrmsCtx = createContext<HrmsState | null>(null);
 
 const avatar = (seed: string) =>
   `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(seed)}&backgroundColor=14171c,1a1d23,262a31&radius=50`;
+
+const isAccountActive = (employee: Employee) => employee.isActive !== false;
 
 export function HrmsProvider({ children }: { children: ReactNode }) {
   const [employees, setEmployees] = useState<Employee[]>(seedEmployees);
@@ -337,7 +346,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         if (demoEmail) {
           // seedEmployees are already in initial state — resolve immediately
           const found = employees.find(e => e.email.toLowerCase() === demoEmail.toLowerCase());
-          if (found) setCurrentUser(found);
+          if (found && isAccountActive(found)) setCurrentUser(found);
           else window.localStorage.removeItem('DEMO_USER_EMAIL'); // stale key
         }
 
@@ -406,9 +415,11 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
           if (session?.user?.email) {
             const email = session.user.email.toLowerCase();
             const found = loadedEmps.find(e => e.email.toLowerCase() === email);
-            if (found) {
+            if (found && isAccountActive(found)) {
               setCurrentUser(found);
               console.log('Session restored for:', email);
+            } else if (found && !isAccountActive(found)) {
+              await supabase.auth.signOut();
             }
           }
 
@@ -425,7 +436,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         const demoEmail = window.localStorage.getItem('DEMO_USER_EMAIL');
         if (demoEmail) {
           const found = employees.find(e => e.email.toLowerCase() === demoEmail.toLowerCase());
-          if (found) setCurrentUser(found);
+          if (found && isAccountActive(found)) setCurrentUser(found);
         }
       } finally {
         setIsLoading(false);
@@ -445,9 +456,13 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       if (session?.user?.email) {
         const email = session.user.email.toLowerCase();
         const found = employees.find(e => e.email.toLowerCase() === email);
-        if (found) {
+        if (found && isAccountActive(found)) {
           setCurrentUser(found);
           pendingAuthEmailRef.current = null;
+        } else if (found && !isAccountActive(found)) {
+          pendingAuthEmailRef.current = null;
+          setCurrentUser(null);
+          supabase.auth.signOut();
         } else {
           pendingAuthEmailRef.current = email;
         }
@@ -464,7 +479,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!pendingAuthEmailRef.current || employees.length === 0) return;
     const found = employees.find(e => e.email.toLowerCase() === pendingAuthEmailRef.current!);
-    if (found) {
+    if (found && isAccountActive(found)) {
       setCurrentUser(found);
       pendingAuthEmailRef.current = null;
     }
@@ -479,6 +494,9 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     const foundEmployee = employees.find(e => e.email.toLowerCase() === searchEmail);
     if (!foundEmployee) {
       throw new Error('This email is not registered in our employee database.');
+    }
+    if (!isAccountActive(foundEmployee)) {
+      throw new Error('Your account has been deactivated. Please contact HR for assistance.');
     }
 
     if (isLive && supabase) {
@@ -501,6 +519,9 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     const foundEmployee = employees.find(e => e.email.toLowerCase() === searchEmail);
     if (!foundEmployee) {
       throw new Error('Your email must match an existing employee profile. Please contact HR.');
+    }
+    if (!isAccountActive(foundEmployee)) {
+      throw new Error('Your account has been deactivated. Please contact HR for assistance.');
     }
 
     if (isLive && supabase) {
@@ -763,6 +784,86 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     [departments, isLive]
   );
 
+  const updateDepartment = useCallback(
+    async (id: string, data: Partial<Omit<Department, 'id'>>) => {
+      const existing = departments.find((d) => d.id === id);
+      if (!existing) {
+        throw new Error('Department not found.');
+      }
+      if (data.name !== undefined && !data.name.trim()) {
+        throw new Error('Department name is required.');
+      }
+
+      const updated: Department = {
+        ...existing,
+        ...data,
+        name: data.name !== undefined ? data.name.trim() : existing.name,
+        location: data.location !== undefined ? data.location.trim() || 'HQ' : existing.location,
+        budget: data.budget !== undefined ? Number(data.budget) || 0 : existing.budget,
+      };
+
+      setDepartments((prev) => prev.map((d) => (d.id === id ? updated : d)));
+
+      if (isLive && supabase) {
+        try {
+          const { error } = await supabase
+            .from('departments')
+            .update(mapDepartmentToDb(data))
+            .eq('id', id);
+          if (error) {
+            setDepartments((prev) => prev.map((d) => (d.id === id ? existing : d)));
+            throw new Error(`Database error: ${error.message}`);
+          }
+        } catch (err: unknown) {
+          setDepartments((prev) => prev.map((d) => (d.id === id ? existing : d)));
+          throw err;
+        }
+      }
+    },
+    [departments, isLive]
+  );
+
+  const deleteDepartment = useCallback(
+    async (id: string) => {
+      const existing = departments.find((d) => d.id === id);
+      if (!existing) {
+        throw new Error('Department not found.');
+      }
+
+      const assignedEmployees = employees.filter((e) => e.departmentId === id);
+      if (assignedEmployees.length > 0) {
+        throw new Error(
+          `Cannot delete "${existing.name}" — ${assignedEmployees.length} employee(s) are still assigned. Reassign them first.`
+        );
+      }
+
+      setDepartments((prev) => prev.filter((d) => d.id !== id));
+      setDepartments((prev) =>
+        prev.map((d) => (d.headEmployeeId && employees.find((e) => e.id === d.headEmployeeId && e.departmentId === id)
+          ? { ...d, headEmployeeId: null }
+          : d))
+      );
+
+      if (isLive && supabase) {
+        try {
+          await supabase
+            .from('departments')
+            .update({ head_employee_id: null })
+            .eq('head_employee_id', id);
+          const { error } = await supabase.from('departments').delete().eq('id', id);
+          if (error) {
+            setDepartments((prev) => [...prev, existing]);
+            throw new Error(`Database error: ${error.message}`);
+          }
+        } catch (err: unknown) {
+          setDepartments((prev) => [...prev, existing]);
+          throw err;
+        }
+      }
+    },
+    [departments, employees, isLive]
+  );
+
   const addEmployee = useCallback(
     async (data: Omit<Employee, 'avatarUrl'>, tempPassword?: string) => {
       const id = data.id.trim();
@@ -782,7 +883,9 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       const newEmp: Employee = {
         ...data,
         id,
-        avatarUrl
+        avatarUrl,
+        nic: data.nic ?? '',
+        isActive: data.isActive !== false,
       };
 
       setEmployees((prev) => [newEmp, ...prev]);
@@ -895,6 +998,38 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       }
     },
     [isLive]
+  );
+
+  const setEmployeeActive = useCallback(
+    async (ids: string[], isActive: boolean) => {
+      setEmployees((prev) =>
+        prev.map((e) => (ids.includes(e.id) ? { ...e, isActive } : e))
+      );
+
+      if (currentUser && ids.includes(currentUser.id) && !isActive) {
+        if (isLive && supabase) {
+          await supabase.auth.signOut();
+        } else {
+          window.localStorage.removeItem('DEMO_USER_EMAIL');
+        }
+        setCurrentUser(null);
+      }
+
+      if (isLive && supabase) {
+        try {
+          const { error } = await supabase
+            .from('employees')
+            .update({ is_active: isActive })
+            .in('id', ids);
+          if (error) {
+            console.error('Failed to update employee account status in database:', error);
+          }
+        } catch (err) {
+          console.error('Network error updating employee account status:', err);
+        }
+      }
+    },
+    [currentUser, isLive]
   );
 
   const assignDepartment = useCallback(
