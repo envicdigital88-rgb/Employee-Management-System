@@ -28,7 +28,7 @@ import { fullName } from '../data/employees';
 import { employeeStatusTone } from '../components/ui/statusMaps';
 import { formatDate } from '../lib/format';
 import { showToast } from '../components/ui/Toast';
-import { Employee, EmployeeStatus } from '../types';
+import { Employee } from '../types';
 
 type SortKey = 'name' | 'department' | 'role' | 'status' | 'joinDate';
 const PAGE_SIZE = 10;
@@ -38,7 +38,7 @@ export function EmployeesPage() {
   const { openAddEmployee } = useOutletContext<{
     openAddEmployee: () => void;
   }>();
-  const { employees, getDepartment, updateEmployee, deleteEmployee, isAdmin } = useHrms();
+  const { employees, getDepartment, updateEmployee, deleteEmployee, setEmployeeActive, isAdmin } = useHrms();
   const [query, setQuery] = useState('');
   const [dept, setDept] = useState('all');
   const [status, setStatus] = useState('all');
@@ -49,7 +49,7 @@ export function EmployeesPage() {
 
   // Per-row action states
   const [confirmDelete, setConfirmDelete] = useState<Employee | null>(null);
-  const [confirmStatus, setConfirmStatus] = useState<{ emp: Employee; nextStatus: EmployeeStatus } | null>(null);
+  const [confirmToggleActive, setConfirmToggleActive] = useState<{ emp: Employee; nextActive: boolean } | null>(null);
 
   const filtered = useMemo(() => {
     let list = employees.filter((e) => {
@@ -164,18 +164,18 @@ export function EmployeesPage() {
     }
   };
 
-  const doStatusToggle = async () => {
-    if (!confirmStatus) return;
+  const doToggleActive = async () => {
+    if (!confirmToggleActive) return;
     try {
-      await updateEmployee(confirmStatus.emp.id, { status: confirmStatus.nextStatus });
+      await setEmployeeActive([confirmToggleActive.emp.id], confirmToggleActive.nextActive);
       showToast(
-        `${fullName(confirmStatus.emp)} is now ${confirmStatus.nextStatus}.`,
+        `${fullName(confirmToggleActive.emp)}'s account is now ${confirmToggleActive.nextActive ? 'Active' : 'Inactive'}.`,
         'success'
       );
     } catch (err: any) {
-      showToast(err.message || 'Failed to update status', 'error');
+      showToast(err.message || 'Failed to update account status', 'error');
     } finally {
-      setConfirmStatus(null);
+      setConfirmToggleActive(null);
     }
   };
 
@@ -252,6 +252,9 @@ export function EmployeesPage() {
                 <th className="px-4 py-3">
                   <SortHeader label="Status" k="status" />
                 </th>
+                <th className="px-4 py-3 font-medium text-content-muted text-xs">
+                  Account
+                </th>
                 <th className="px-4 py-3">
                   <SortHeader label="Joined" k="joinDate" />
                 </th>
@@ -266,8 +269,7 @@ export function EmployeesPage() {
               {paged.map((e, i) => {
                 const dpt = getDepartment(e.departmentId);
                 const isSel = selected.includes(e.id);
-                const isActive = e.status === 'Active';
-                const nextStatus: EmployeeStatus = isActive ? 'Terminated' : 'Active';
+                const accountActive = e.isActive !== false;
 
                 return (
                   <motion.tr
@@ -323,6 +325,11 @@ export function EmployeesPage() {
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
+                      <Badge tone={accountActive ? 'green' : 'red'} dot>
+                        {accountActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 text-content-muted">
                         <CalendarIcon className="h-3.5 w-3.5 shrink-0 text-content-faint" />
                         <span className="text-xs">{formatDate(e.joinDate)}</span>
@@ -343,16 +350,16 @@ export function EmployeesPage() {
                             <MailIcon className="h-4 w-4" />
                           </a>
 
-                          {/* Toggle Active / Inactive */}
+                          {/* Toggle Active / Inactive account */}
                           <button
                             onClick={(ev) => {
                               ev.stopPropagation();
-                              setConfirmStatus({ emp: e, nextStatus });
+                              setConfirmToggleActive({ emp: e, nextActive: !accountActive });
                             }}
-                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-white/5 ${isActive ? 'text-emerald-400 hover:text-red-400' : 'text-content-faint hover:text-emerald-400'}`}
-                            title={isActive ? 'Deactivate employee' : 'Activate employee'}
-                            aria-label={isActive ? `Deactivate ${fullName(e)}` : `Activate ${fullName(e)}`}>
-                            {isActive
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-white/5 ${accountActive ? 'text-emerald-400 hover:text-red-400' : 'text-content-faint hover:text-emerald-400'}`}
+                            title={accountActive ? 'Deactivate account' : 'Activate account'}
+                            aria-label={accountActive ? `Deactivate ${fullName(e)} account` : `Activate ${fullName(e)} account`}>
+                            {accountActive
                               ? <ToggleRightIcon className="h-4 w-4" />
                               : <ToggleLeftIcon className="h-4 w-4" />
                             }
@@ -453,20 +460,20 @@ export function EmployeesPage() {
         variant="danger"
       />
 
-      {/* Status Toggle Confirmation */}
+      {/* Account Toggle Confirmation */}
       <ConfirmationModal
-        open={!!confirmStatus}
-        onClose={() => setConfirmStatus(null)}
-        onConfirm={doStatusToggle}
-        title={confirmStatus?.nextStatus === 'Active' ? 'Activate Employee' : 'Deactivate Employee'}
-        message={confirmStatus
-          ? confirmStatus.nextStatus === 'Active'
-            ? `Are you sure you want to activate ${fullName(confirmStatus.emp)}? They will regain Active status and full system access.`
-            : `Are you sure you want to deactivate ${fullName(confirmStatus.emp)}? Their status will be changed to Terminated.`
+        open={!!confirmToggleActive}
+        onClose={() => setConfirmToggleActive(null)}
+        onConfirm={doToggleActive}
+        title={confirmToggleActive?.nextActive ? 'Activate Account' : 'Deactivate Account'}
+        message={confirmToggleActive
+          ? confirmToggleActive.nextActive
+            ? `Are you sure you want to activate ${fullName(confirmToggleActive.emp)}'s account? They will be able to log in to the system.`
+            : `Are you sure you want to deactivate ${fullName(confirmToggleActive.emp)}'s account? They will no longer be able to log in to the system.`
           : ''}
-        confirmText={confirmStatus?.nextStatus === 'Active' ? 'Activate' : 'Deactivate'}
+        confirmText={confirmToggleActive?.nextActive ? 'Activate Account' : 'Deactivate Account'}
         cancelText="Cancel"
-        variant={confirmStatus?.nextStatus === 'Active' ? 'primary' : 'danger'}
+        variant={confirmToggleActive?.nextActive ? 'primary' : 'danger'}
       />
     </div>);
 

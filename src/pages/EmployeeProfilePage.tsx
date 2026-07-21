@@ -13,7 +13,8 @@ import {
   StarIcon,
   SaveIcon,
   ClockIcon,
-  Trash2Icon } from
+  Trash2Icon,
+  ShieldCheckIcon } from
 'lucide-react';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -64,7 +65,8 @@ export function EmployeeProfilePage() {
 
   // Edit form state
   const [editRole, setEditRole] = useState('');
-  const [editStatus, setEditStatus] = useState<EmployeeStatus>('Active');
+  const [editStatus, setEditStatus] = useState<EmployeeStatus>('Permanent');
+  const [editIsActive, setEditIsActive] = useState(true);
   const [editDept, setEditDept] = useState('');
   const [editLocation, setEditLocation] = useState('');
   const [editPhone, setEditPhone] = useState('');
@@ -76,6 +78,7 @@ export function EmployeeProfilePage() {
     if (!emp) return;
     setEditRole(emp.role);
     setEditStatus(emp.status);
+    setEditIsActive(emp.isActive !== false);
     setEditDept(emp.departmentId);
     setEditLocation(emp.location);
     setEditPhone(emp.phone);
@@ -94,6 +97,7 @@ export function EmployeeProfilePage() {
       await updateEmployee(emp.id, {
         role: editRole,
         status: editStatus,
+        isActive: editIsActive,
         departmentId: editDept,
         location: editLocation,
         phone: editPhone,
@@ -178,6 +182,10 @@ export function EmployeeProfilePage() {
               <Badge tone={employeeStatusTone[emp.status]} dot>
                 {emp.status}
               </Badge>
+              <Badge tone={emp.isActive !== false ? 'green' : 'red'} dot>
+                <ShieldCheckIcon className="h-3 w-3 mr-1 inline-block" />
+                {emp.isActive !== false ? 'Account Active' : 'Account Inactive'}
+              </Badge>
             </div>
             <p className="mt-1 text-content-muted">
               {emp.role} · {dept?.name}
@@ -199,12 +207,12 @@ export function EmployeeProfilePage() {
                   variant="secondary" 
                   size="md" 
                   onClick={() => {
-                    const nextStatus = emp.status === 'Active' ? 'Terminated' : 'Active';
-                    updateEmployee(emp.id, { status: nextStatus });
-                    showToast(`${fullName(emp)} has been ${nextStatus === 'Active' ? 'activated' : 'deactivated'}.`, 'success');
+                    const nextActive = emp.isActive === false ? true : false;
+                    updateEmployee(emp.id, { isActive: nextActive });
+                    showToast(`${fullName(emp)}'s account has been ${nextActive ? 'activated' : 'deactivated'}.`, 'success');
                   }}
                 >
-                  {emp.status === 'Active' ? 'Deactivate' : 'Activate'}
+                  {emp.isActive !== false ? 'Deactivate Account' : 'Activate Account'}
                 </Button>
                 <Button variant="primary" size="md" onClick={openEdit}>
                   <PencilIcon className="h-4 w-4" />
@@ -560,7 +568,7 @@ export function EmployeeProfilePage() {
                 value={editStatus}
                 onChange={e => setEditStatus(e.target.value as EmployeeStatus)}
               >
-                {(['Active', 'On Leave', 'Terminated', 'Remote'] as EmployeeStatus[]).map(s => (
+                {(['Permanent', 'Probation', 'On Leave', 'Terminated'] as EmployeeStatus[]).map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
@@ -622,6 +630,32 @@ export function EmployeeProfilePage() {
               </select>
             </div>
           </div>
+
+          {/* Account Active toggle */}
+          <div className="flex items-center justify-between rounded-xl border border-line bg-surface-raised px-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-content">Account Active</p>
+              <p className="text-xs text-content-faint mt-0.5">
+                {editIsActive ? 'Employee can log in to the portal' : 'Employee cannot log in to the portal'}
+              </p>
+            </div>
+            <button
+              type="button"
+              id="edit-account-active-toggle"
+              onClick={() => setEditIsActive(prev => !prev)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent/50 ${
+                editIsActive ? 'bg-emerald-500' : 'bg-surface'
+              }`}
+              aria-label="Toggle account active"
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                  editIsActive ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setEditOpen(false)}>Cancel</Button>
             <Button variant="primary" onClick={handleEditSave}>

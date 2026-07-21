@@ -94,7 +94,7 @@ export function BulkActionsBar({
             aria-label="Change status for selected">
             
               <option value="">Set status…</option>
-              {(['Active', 'On Leave', 'Probation', 'Terminated'] as EmployeeStatus[]).map((s) =>
+              {(['Permanent', 'Probation', 'On Leave', 'Terminated'] as EmployeeStatus[]).map((s) =>
               <option key={s} value={s}>{s}</option>
               )}
             </select>

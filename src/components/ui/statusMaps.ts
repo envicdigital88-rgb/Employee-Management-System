@@ -10,10 +10,9 @@ import {
 type Tone = 'accent' | 'green' | 'amber' | 'red' | 'purple' | 'blue' | 'neutral';
 
 export const employeeStatusTone: Record<EmployeeStatus, Tone> = {
-  Active: 'green',
-  'On Leave': 'amber',
-  Probation: 'blue',
   Permanent: 'green',
+  Probation: 'amber',
+  'On Leave': 'blue',
   Terminated: 'red'
 };
 

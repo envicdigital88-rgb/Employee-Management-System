@@ -24,6 +24,7 @@ export function AddEmployeeModal({
   const [employmentType, setEmploymentType] =
     useState<EmploymentType>('Full-time');
   const [status, setStatus] = useState<EmployeeStatus>('Probation');
+  const [isActive, setIsActive] = useState(true);
   const [salary, setSalary] = useState('');
   const [shift, setShift] = useState('Morning Shift (9:00 AM - 5:00 PM)');
   const [tempPassword, setTempPassword] = useState('Password@123');
@@ -51,6 +52,7 @@ export function AddEmployeeModal({
     setSalary('');
     setShift('Morning Shift (9:00 AM - 5:00 PM)');
     setTempPassword('Password@123');
+    setIsActive(true);
     setError('');
   };
   const submit = async (e: React.FormEvent) => {
@@ -92,7 +94,8 @@ export function AddEmployeeModal({
         gender: 'Other',
         dateOfBirth: '1995-01-01',
         address: '—',
-        shift
+        shift,
+        isActive
       }, tempPassword.trim());
       reset();
       onClose();
@@ -228,15 +231,14 @@ export function AddEmployeeModal({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={labelClass} htmlFor="st">
-              Status
+              Employment Status
             </label>
             <select
               id="st"
               className={fieldClass}
               value={status}
               onChange={(e) => setStatus(e.target.value as EmployeeStatus)}>
-              
-              {['Active', 'Probation', 'On Leave'].map((s) =>
+              {['Probation', 'Permanent'].map((s) =>
               <option key={s} value={s}>
                   {s}
                 </option>
@@ -256,6 +258,31 @@ export function AddEmployeeModal({
               placeholder="120000" />
             
           </div>
+        </div>
+
+        {/* Account Active toggle */}
+        <div className="flex items-center justify-between rounded-xl border border-line bg-surface-raised px-4 py-3">
+          <div>
+            <p className="text-sm font-medium text-content">Account Active</p>
+            <p className="text-xs text-content-faint mt-0.5">
+              {isActive ? 'Employee can log in to the portal' : 'Employee cannot log in to the portal'}
+            </p>
+          </div>
+          <button
+            type="button"
+            id="account-active-toggle"
+            onClick={() => setIsActive(prev => !prev)}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent/50 ${
+              isActive ? 'bg-emerald-500' : 'bg-surface'
+            }`}
+            aria-label="Toggle account active"
+          >
+            <span
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                isActive ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

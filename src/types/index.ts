@@ -1,7 +1,7 @@
 // Domain types for the ENVIC HRMS.
 // Every entity mirrors a MySQL table; cross-references use *Id fields as foreign keys.
 
-export type EmployeeStatus = 'Active' | 'On Leave' | 'Probation' | 'Permanent' | 'Terminated';
+export type EmployeeStatus = 'Permanent' | 'Probation' | 'On Leave' | 'Terminated';
 export type EmploymentType = 'Full-time' | 'Part-time' | 'Contract' | 'Intern';
 
 export interface Department {
