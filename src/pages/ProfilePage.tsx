@@ -3,16 +3,20 @@ import { useHrms } from '../store/HrmsContext';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { UserIcon, LockIcon, ShieldAlertIcon, CheckIcon } from 'lucide-react';
+import { CheckIcon, ShieldCheckIcon } from 'lucide-react';
 
 const fieldClass =
   'h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content placeholder:text-content-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30';
 const labelClass = 'mb-1.5 block text-xs font-medium text-content-muted';
 
 export function ProfilePage() {
-  const { currentUser, updateProfile, updatePassword } = useHrms();
+  const { currentUser, updateProfile, updatePassword, isAdmin } = useHrms();
 
   // Profile forms state
+  const [firstName, setFirstName] = useState(currentUser?.firstName || '');
+  const [lastName, setLastName] = useState(currentUser?.lastName || '');
+  const [preferredName, setPreferredName] = useState(currentUser?.preferredName || '');
+  const [email, setEmail] = useState(currentUser?.email || '');
   const [phone, setPhone] = useState(currentUser?.phone || '');
   const [address, setAddress] = useState(currentUser?.address || '');
   const [dob, setDob] = useState(currentUser?.dateOfBirth || '');
@@ -34,8 +38,17 @@ export function ProfilePage() {
     setErrorProfile(null);
     setProfileSaved(false);
 
+    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
+      setErrorProfile('First Name, Last Name, and Work Email are required.');
+      return;
+    }
+
     try {
       await updateProfile({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        preferredName: preferredName.trim() || null,
+        email: email.trim(),
         phone,
         address,
         dateOfBirth: dob,
@@ -78,7 +91,15 @@ export function ProfilePage() {
     <div className="space-y-6">
       <PageHeader
         title="My Profile"
-        description="Update your personal details and manage account credentials."
+        description="Update your personal details, name, and manage account login credentials."
+        actions={
+          isAdmin ? (
+            <div className="inline-flex items-center gap-1.5 rounded-xl border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent">
+              <ShieldCheckIcon className="h-4 w-4" />
+              <span>Administrator Account</span>
+            </div>
+          ) : undefined
+        }
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -86,8 +107,8 @@ export function ProfilePage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader
-              title="Personal Information"
-              subtitle="Edit your contact details and background info"
+              title="Personal & Profile Information"
+              subtitle="Edit your name, contact details, and account info"
             />
 
             <form onSubmit={handleSaveProfile} className="space-y-4 p-5">
@@ -105,27 +126,52 @@ export function ProfilePage() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
-                  <label className={labelClass}>First Name</label>
-                  <input className={`${fieldClass} opacity-60 cursor-not-allowed`} value={currentUser.firstName} disabled />
+                  <label className={labelClass} htmlFor="profile_fn">First Name *</label>
+                  <input
+                    id="profile_fn"
+                    className={fieldClass}
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                  />
                 </div>
                 <div>
-                  <label className={labelClass}>Last Name</label>
-                  <input className={`${fieldClass} opacity-60 cursor-not-allowed`} value={currentUser.lastName} disabled />
+                  <label className={labelClass} htmlFor="profile_ln">Last Name *</label>
+                  <input
+                    id="profile_ln"
+                    className={fieldClass}
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                  />
                 </div>
                 <div>
-                  <label className={labelClass}>Preferred Name</label>
-                  <input className={`${fieldClass} opacity-60 cursor-not-allowed`} value={currentUser.preferredName || '—'} disabled />
+                  <label className={labelClass} htmlFor="profile_pn">Preferred Name</label>
+                  <input
+                    id="profile_pn"
+                    className={fieldClass}
+                    value={preferredName}
+                    onChange={(e) => setPreferredName(e.target.value)}
+                    placeholder="e.g. Alex"
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className={labelClass}>Job Title / Role</label>
-                  <input className={`${fieldClass} opacity-60 cursor-not-allowed`} value={currentUser.role} disabled />
+                  <label className={labelClass} htmlFor="profile_email">Work Email Address *</label>
+                  <input
+                    id="profile_email"
+                    type="email"
+                    className={fieldClass}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
                 </div>
                 <div>
-                  <label className={labelClass}>Work Email</label>
-                  <input className={`${fieldClass} opacity-60 cursor-not-allowed`} value={currentUser.email} disabled />
+                  <label className={labelClass}>Job Title / Role</label>
+                  <input className={`${fieldClass} opacity-60 cursor-not-allowed`} value={currentUser.role} disabled />
                 </div>
               </div>
 
@@ -197,7 +243,7 @@ export function ProfilePage() {
           <Card>
             <CardHeader
               title="Account Security"
-              subtitle="Change your login credentials"
+              subtitle="Update your login password"
             />
 
             <form onSubmit={handleSavePassword} className="space-y-4 p-5">
@@ -230,7 +276,7 @@ export function ProfilePage() {
 
               <div>
                 <label className={labelClass} htmlFor="profile_confirm">
-                  Confirm Password
+                  Confirm New Password
                 </label>
                 <input
                   id="profile_confirm"
@@ -253,3 +299,4 @@ export function ProfilePage() {
     </div>
   );
 }
+
