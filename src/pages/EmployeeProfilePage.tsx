@@ -52,7 +52,6 @@ export function EmployeeProfilePage() {
     getPayrollForEmployee, 
     getReviewsForEmployee, 
     getLeaveBalance,
-    updateEmployeeStatus,
     updateEmployee,
     deleteEmployee,
     isAdmin,

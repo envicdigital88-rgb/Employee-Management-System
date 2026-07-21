@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { DownloadIcon, UserCogIcon, Building2Icon, XIcon, Trash2Icon, ShieldIcon } from 'lucide-react';
+import { DownloadIcon, UserCogIcon, Building2Icon, XIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { useHrms } from '../../store/HrmsContext';

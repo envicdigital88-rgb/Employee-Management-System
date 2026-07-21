@@ -5,9 +5,9 @@ import { EmployeeStatus } from '../../types';
 const selectClass =
 'h-10 rounded-xl border border-line bg-surface px-3 text-sm text-content focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30';
 const STATUSES: EmployeeStatus[] = [
-'Active',
-'On Leave',
+'Permanent',
 'Probation',
+'On Leave',
 'Terminated'];
 
 export function EmployeeFilters({

@@ -38,7 +38,7 @@ export function EmployeesPage() {
   const { openAddEmployee } = useOutletContext<{
     openAddEmployee: () => void;
   }>();
-  const { employees, getDepartment, updateEmployee, deleteEmployee, setEmployeeActive, isAdmin } = useHrms();
+  const { employees, getDepartment, deleteEmployee, setEmployeeActive, isAdmin } = useHrms();
   const [query, setQuery] = useState('');
   const [dept, setDept] = useState('all');
   const [status, setStatus] = useState('all');

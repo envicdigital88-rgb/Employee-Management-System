@@ -462,7 +462,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         } else if (found && !isAccountActive(found)) {
           pendingAuthEmailRef.current = null;
           setCurrentUser(null);
-          supabase.auth.signOut();
+          supabase?.auth.signOut();
         } else {
           pendingAuthEmailRef.current = email;
         }
@@ -1216,10 +1216,13 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       currentUser,
       isAdmin,
       addDepartment,
+      updateDepartment,
+      deleteDepartment,
       addEmployee,
       updateEmployee,
       deleteEmployee,
       updateEmployeeStatus,
+      setEmployeeActive,
       assignDepartment,
       setLeaveStatus,
       moveCandidate,
@@ -1260,10 +1263,13 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       currentUser,
       isAdmin,
       addDepartment,
+      updateDepartment,
+      deleteDepartment,
       addEmployee,
       updateEmployee,
       deleteEmployee,
       updateEmployeeStatus,
+      setEmployeeActive,
       assignDepartment,
       setLeaveStatus,
       moveCandidate,
