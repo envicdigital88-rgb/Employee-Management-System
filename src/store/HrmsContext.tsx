@@ -611,15 +611,26 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
     setAttendanceRecords(prev => [newRecord, ...prev]);
 
-    // Notify admin of clock-in
-    setNotifications(prev => [{
-      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2,9)}`,
-      recipientId: 'admin',
-      message: `${currentUser.firstName} ${currentUser.lastName} clocked in at ${timeStr}`,
-      createdAt: new Date().toISOString(),
-      read: false,
-      type: 'attendance'
-    }, ...prev]);
+    // Notify admin AND employee of clock-in
+    setNotifications(prev => [
+      {
+        id: `notif-${Date.now()}-adm-${Math.random().toString(36).substring(2,9)}`,
+        recipientId: 'admin',
+        message: `${currentUser.firstName} ${currentUser.lastName} clocked in at ${timeStr}`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        type: 'attendance'
+      },
+      {
+        id: `notif-${Date.now()}-emp-${Math.random().toString(36).substring(2,9)}`,
+        recipientId: currentUser.id,
+        message: `You clocked in successfully at ${timeStr}. Have a productive day!`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        type: 'attendance'
+      },
+      ...prev
+    ]);
 
     if (isLive && supabase) {
       try {
@@ -678,15 +689,26 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Notify admin of clock-out
-    setNotifications(prev => [{
-      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2,9)}`,
-      recipientId: 'admin',
-      message: `${currentUser.firstName} ${currentUser.lastName} clocked out at ${timeStr} (${hours} hrs)`,
-      createdAt: new Date().toISOString(),
-      read: false,
-      type: 'attendance'
-    }, ...prev]);
+    // Notify admin AND employee of clock-out
+    setNotifications(prev => [
+      {
+        id: `notif-${Date.now()}-adm-${Math.random().toString(36).substring(2,9)}`,
+        recipientId: 'admin',
+        message: `${currentUser.firstName} ${currentUser.lastName} clocked out at ${timeStr} (${hours} hrs)`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        type: 'attendance'
+      },
+      {
+        id: `notif-${Date.now()}-emp-${Math.random().toString(36).substring(2,9)}`,
+        recipientId: currentUser.id,
+        message: `You clocked out at ${timeStr} (${hours} hrs worked).`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        type: 'attendance'
+      },
+      ...prev
+    ]);
   }, [currentUser, attendanceRecords, isLive]);
 
   const applyLeave = useCallback(async (data: Omit<LeaveRequest, 'id' | 'status' | 'requestedOn' | 'employeeId'>) => {
@@ -707,15 +729,26 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
     setLeaveRequests(prev => [newLeave, ...prev]);
 
-    // Notify admin of leave application
-    setNotifications(prev => [{
-      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2,9)}`,
-      recipientId: 'admin',
-      message: `${currentUser.firstName} ${currentUser.lastName} submitted a ${data.type} leave request for ${data.days} day(s) (${data.startDate} to ${data.endDate})`,
-      createdAt: new Date().toISOString(),
-      read: false,
-      type: 'leave'
-    }, ...prev]);
+    // Notify admin AND employee of leave application
+    setNotifications(prev => [
+      {
+        id: `notif-${Date.now()}-adm-${Math.random().toString(36).substring(2,9)}`,
+        recipientId: 'admin',
+        message: `${currentUser.firstName} ${currentUser.lastName} submitted a ${data.type} leave request for ${data.days} day(s) (${data.startDate} to ${data.endDate})`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        type: 'leave'
+      },
+      {
+        id: `notif-${Date.now()}-emp-${Math.random().toString(36).substring(2,9)}`,
+        recipientId: currentUser.id,
+        message: `Your ${data.type} leave request for ${data.days} day(s) (${data.startDate} to ${data.endDate}) was submitted successfully for review.`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        type: 'leave'
+      },
+      ...prev
+    ]);
 
     if (isLive && supabase) {
       try {
@@ -1061,17 +1094,36 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         prev.map((l) => (ids.includes(l.id) ? { ...l, status } : l))
       );
 
-      // Notify each affected employee
+      // Notify each affected employee AND admin
       if (affectedRequests && affectedRequests.length > 0) {
         const now = new Date().toISOString();
-        const newNotifs: Notification[] = affectedRequests.map(l => ({
-          id: `notif-${Date.now()}-${Math.random().toString(36).substring(2,9)}`,
-          recipientId: l.employeeId,
-          message: `Your ${l.type} leave request (${l.startDate} to ${l.endDate}) has been ${status}.`,
-          createdAt: now,
-          read: false,
-          type: 'leave' as const
-        }));
+        const newNotifs: Notification[] = [];
+        
+        affectedRequests.forEach(l => {
+          const emp = employees.find(e => e.id === l.employeeId);
+          const empName = emp ? `${emp.firstName} ${emp.lastName}` : l.employeeId;
+
+          // Notification for Employee
+          newNotifs.push({
+            id: `notif-${Date.now()}-emp-${Math.random().toString(36).substring(2,9)}`,
+            recipientId: l.employeeId,
+            message: `Your ${l.type} leave request (${l.startDate} to ${l.endDate}) has been ${status}.`,
+            createdAt: now,
+            read: false,
+            type: 'leave' as const
+          });
+
+          // Notification for Admin
+          newNotifs.push({
+            id: `notif-${Date.now()}-adm-${Math.random().toString(36).substring(2,9)}`,
+            recipientId: 'admin',
+            message: `Leave request for ${empName} (${l.type}, ${l.days} day(s)) was marked as ${status}.`,
+            createdAt: now,
+            read: false,
+            type: 'leave' as const
+          });
+        });
+
         setNotifications(prev => [...newNotifs, ...prev]);
       }
 
@@ -1089,7 +1141,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [isLive]
+    [employees, isLive]
   );
 
   const moveCandidate = useCallback(
