@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LockIcon, KeyIcon } from 'lucide-react';
 import { useHrms } from '../store/HrmsContext';
+import { supabase } from '../lib/supabaseClient';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Logo } from '../components/ui/Logo';
@@ -21,6 +22,8 @@ export function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +42,7 @@ export function ResetPasswordPage() {
     setLoading(true);
 
     try {
+      if (!ready) throw new Error('Reset link not detected or session not established. Please open the reset link from your email in this browser tab.');
       await updatePassword(password);
       setSuccess(true);
       setTimeout(() => {
@@ -51,6 +55,43 @@ export function ResetPasswordPage() {
       setLoading(false);
     }
   };
+
+  // Ensure we have an active Supabase session from the recovery link.
+  useEffect(() => {
+    (async () => {
+      if (!supabase) {
+        setNotice('Application is running in Demo Mode; password reset is not required here.');
+        setReady(true);
+        return;
+      }
+
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session) {
+          setReady(true);
+          return;
+        }
+
+        // Try to parse access_token and refresh_token from URL hash (Supabase sends tokens in hash)
+        const hash = window.location.hash || window.location.search || '';
+        const params = new URLSearchParams(hash.replace(/^#/, '?'));
+        const access_token = params.get('access_token');
+        const refresh_token = params.get('refresh_token');
+
+        if (access_token) {
+          const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+          if (error) throw error;
+          setReady(true);
+          return;
+        }
+
+        setNotice('No active session found. Please open the password reset link from your email in this browser tab (do not preview).');
+      } catch (err: any) {
+        console.error('Failed to establish reset session:', err);
+        setError(err?.message || 'Failed to process reset link.');
+      }
+    })();
+  }, []);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-12 sm:px-6 lg:px-8">
