@@ -24,15 +24,15 @@ export function Sidebar({
         className={`flex h-16 items-center border-b border-line px-4 ${collapsed ? 'justify-center' : 'justify-between'}`}>
         
         <Logo collapsed={collapsed} />
-        {!collapsed &&
         <button
           onClick={onToggle}
           className="hidden rounded-lg p-1.5 text-content-muted transition-colors hover:bg-white/5 hover:text-content lg:block"
-          aria-label="Collapse sidebar">
-          
-            <ChevronsLeftIcon className="h-4 w-4" />
-          </button>
-        }
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          <ChevronsLeftIcon
+            className="h-4 w-4 transition-transform duration-300"
+            style={{ transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          />
+        </button>
       </div>
 
       <nav
