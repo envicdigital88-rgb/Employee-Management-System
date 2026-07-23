@@ -328,6 +328,18 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('HRMS_NOTIFICATIONS', JSON.stringify(notifications));
   }, [notifications]);
 
+  const [tempPasswords, setTempPasswords] = useState<Record<string, string>>(() => {
+    const saved = localStorage.getItem('HRMS_TEMP_PASSWORDS');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {};
+  });
+
+  useEffect(() => {
+    localStorage.setItem('HRMS_TEMP_PASSWORDS', JSON.stringify(tempPasswords));
+  }, [tempPasswords]);
+
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [isLive, setIsLive] = useState<boolean>(false);
@@ -580,18 +592,42 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       throw new Error('Your account has been deactivated. Please contact HR for assistance.');
     }
 
+    const tempPw = tempPasswords[searchEmail];
+
+    if (tempPw) {
+      if (password !== tempPw) {
+        throw new Error('Invalid email or password. Please check your login credentials.');
+      }
+      // Temporary password matched!
+      setCurrentUser(foundEmployee);
+      window.sessionStorage.setItem('DEMO_USER_EMAIL', foundEmployee.email);
+      if (isLive && supabase) {
+        try {
+          await supabase.auth.signInWithPassword({
+            email: searchEmail,
+            password
+          });
+        } catch (e) {
+          // Supabase auth fallback if email confirmation is enabled
+        }
+      }
+      return;
+    }
+
     if (isLive && supabase) {
       const { error } = await supabase.auth.signInWithPassword({
         email: searchEmail,
         password
       });
       if (error) throw error;
+      setCurrentUser(foundEmployee);
+      window.sessionStorage.setItem('DEMO_USER_EMAIL', foundEmployee.email);
     } else {
       // Demo Mode login
       setCurrentUser(foundEmployee);
       window.sessionStorage.setItem('DEMO_USER_EMAIL', foundEmployee.email);
     }
-  }, [employees, isLive]);
+  }, [employees, isLive, tempPasswords]);
 
   const signup = useCallback(async (email: string, password: string) => {
     const searchEmail = email.trim().toLowerCase();
@@ -642,13 +678,21 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
   }, [isLive]);
 
   const updatePassword = useCallback(async (password: string) => {
+    if (currentUser?.email) {
+      const userEmail = currentUser.email.toLowerCase();
+      setTempPasswords(prev => {
+        const copy = { ...prev };
+        delete copy[userEmail];
+        return copy;
+      });
+    }
     if (isLive && supabase) {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
     } else {
       console.log('Demo Mode: Password updated simulation');
     }
-  }, [isLive]);
+  }, [currentUser, isLive]);
 
   const updateProfile = useCallback(async (data: Partial<Employee>) => {
     if (!currentUser) return;
@@ -1028,6 +1072,13 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
       setEmployees((prev) => [newEmp, ...prev]);
 
+      if (tempPassword) {
+        setTempPasswords((prev) => ({
+          ...prev,
+          [newEmp.email.trim().toLowerCase()]: tempPassword
+        }));
+      }
+
       if (isLive && supabase) {
         try {
           const dbRow = mapEmployeeToDb(newEmp);
@@ -1051,7 +1102,6 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
             });
             if (authError) {
               console.error('Failed to register employee in Auth:', authError);
-              throw new Error(`Auth registration error: ${authError.message}`);
             }
           }
         } catch (err: any) {
@@ -1108,6 +1158,13 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
       const merged: Partial<Employee> = { ...otherData, email: normalizedEmail };
 
+      if (tempPassword) {
+        setTempPasswords((prev) => ({
+          ...prev,
+          [normalizedEmail]: tempPassword
+        }));
+      }
+
       // Update local employees state
       setEmployees((prev) =>
         prev.map((e) => (e.id === id ? { ...e, ...merged } : e))
@@ -1115,7 +1172,10 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
       // Update currentUser if this is the logged-in employee
       setCurrentUser((prev) => {
-        if (prev && prev.id === id) return { ...prev, ...merged };
+        if (prev && prev.id === id) {
+          window.sessionStorage.setItem('DEMO_USER_EMAIL', normalizedEmail);
+          return { ...prev, ...merged };
+        }
         return prev;
       });
 
