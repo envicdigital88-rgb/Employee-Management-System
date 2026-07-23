@@ -116,7 +116,7 @@ const mapEmployeeToDb = (e: Partial<Employee>): any => {
   if (e.isActive !== undefined) res.is_active = e.isActive;
   if (e.isAdmin !== undefined) res.is_admin = e.isAdmin;
   if (e.shift !== undefined) res.shift = e.shift;
-  if (e.endDate !== undefined) res.end_date = e.endDate;
+  if (e.endDate) res.end_date = e.endDate;
   return res;
 };
 
@@ -1082,7 +1082,12 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       if (isLive && supabase) {
         try {
           const dbRow = mapEmployeeToDb(newEmp);
-          const { error: dbError } = await supabase.from('employees').insert(dbRow);
+          let { error: dbError } = await supabase.from('employees').insert(dbRow);
+          if (dbError && dbError.message?.toLowerCase().includes('end_date')) {
+            delete dbRow.end_date;
+            const retry = await supabase.from('employees').insert(dbRow);
+            dbError = retry.error;
+          }
           if (dbError) {
             console.error('Failed to insert employee in database:', dbError);
             throw new Error(`Database error: ${dbError.message}`);
@@ -1128,7 +1133,12 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       if (isLive && supabase) {
         try {
           const dbRow = mapEmployeeToDb(data);
-          const { error } = await supabase.from('employees').update(dbRow).eq('id', id);
+          let { error } = await supabase.from('employees').update(dbRow).eq('id', id);
+          if (error && error.message?.toLowerCase().includes('end_date')) {
+            delete dbRow.end_date;
+            const retry = await supabase.from('employees').update(dbRow).eq('id', id);
+            error = retry.error;
+          }
           if (error) {
             console.error('Failed to update employee in database:', error);
           }
@@ -1196,7 +1206,12 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         try {
           // 1. Update email (and any other changed fields) in the employees table
           const dbRow = mapEmployeeToDb(merged);
-          const { error: dbError } = await supabase.from('employees').update(dbRow).eq('id', id);
+          let { error: dbError } = await supabase.from('employees').update(dbRow).eq('id', id);
+          if (dbError && dbError.message?.toLowerCase().includes('end_date')) {
+            delete dbRow.end_date;
+            const retry = await supabase.from('employees').update(dbRow).eq('id', id);
+            dbError = retry.error;
+          }
           if (dbError) {
             console.error('Failed to update employee email in database:', dbError);
             throw new Error(`Database error: ${dbError.message}`);
