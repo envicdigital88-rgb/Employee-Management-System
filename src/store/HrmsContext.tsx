@@ -662,7 +662,8 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       'phone',
       'address',
       'dateOfBirth',
-      'gender'
+      'gender',
+      'avatarUrl'
     ];
     
     const filteredData: Partial<Employee> = {};

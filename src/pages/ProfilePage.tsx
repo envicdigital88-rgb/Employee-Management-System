@@ -5,6 +5,7 @@ import { Card, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Avatar } from '../components/ui/Avatar';
 import { AvatarPicker } from '../components/ui/AvatarPicker';
+import { showToast } from '../components/ui/Toast';
 import { CheckIcon, ShieldCheckIcon, CameraIcon } from 'lucide-react';
 import { formatDate } from '../lib/format';
 
@@ -76,10 +77,11 @@ export function ProfilePage() {
       await updateProfile({ avatarUrl });
       setAvatarSaved(true);
       setAvatarPickerOpen(false);
+      showToast('Profile picture updated successfully!', 'success');
       setTimeout(() => setAvatarSaved(false), 3000);
     } catch (err: any) {
-      // silently log — avatar save is non-critical
       console.error('Failed to save avatar:', err);
+      showToast(err.message || 'Failed to save profile picture.', 'error');
     }
   };
 
