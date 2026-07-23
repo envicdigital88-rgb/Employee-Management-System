@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LockIcon, KeyIcon } from 'lucide-react';
+import { LockIcon, KeyIcon, EyeIcon, EyeOffIcon } from 'lucide-react';
 import { useHrms } from '../store/HrmsContext';
 import { supabase } from '../lib/supabaseClient';
 import { Card } from '../components/ui/Card';
@@ -10,7 +10,7 @@ import { Logo } from '../components/ui/Logo';
 const inputWrapperClass = 'relative flex items-center';
 const iconClass = 'absolute left-3.5 h-4 w-4 text-content-faint';
 const inputClass =
-  'h-11 w-full rounded-xl border border-line bg-surface-raised pl-10 pr-4 text-sm text-content placeholder:text-content-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30';
+  'h-11 w-full rounded-xl border border-line bg-surface-raised pl-10 pr-12 text-sm text-content placeholder:text-content-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30';
 const labelClass = 'mb-1.5 block text-xs font-medium text-content-muted';
 
 export function ResetPasswordPage() {
@@ -22,6 +22,8 @@ export function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [ready, setReady] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -135,6 +137,14 @@ export function ResetPasswordPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(s => !s)}
+                  className="absolute right-3.5 h-6 w-6 text-content-faint"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOffIcon className="h-6 w-6" /> : <EyeIcon className="h-6 w-6" />}
+                </button>
               </div>
             </div>
 
@@ -146,13 +156,21 @@ export function ResetPasswordPage() {
                 <KeyIcon className={iconClass} />
                 <input
                   id="confirm-password"
-                  type="password"
+                  type={showConfirm ? 'text' : 'password'}
                   required
                   placeholder="••••••••"
                   className={inputClass}
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(s => !s)}
+                  className="absolute right-3.5 h-6 w-6 text-content-faint"
+                  aria-label={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
+                >
+                  {showConfirm ? <EyeOffIcon className="h-6 w-6" /> : <EyeIcon className="h-6 w-6" />}
+                </button>
               </div>
             </div>
 

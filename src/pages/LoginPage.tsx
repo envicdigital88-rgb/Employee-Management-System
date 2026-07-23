@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { LockIcon, MailIcon, ShieldCheckIcon, ArrowRightIcon } from 'lucide-react';
+import { LockIcon, MailIcon, ShieldCheckIcon, ArrowRightIcon, EyeIcon, EyeOffIcon } from 'lucide-react';
 import { useHrms } from '../store/HrmsContext';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -9,7 +9,7 @@ import { Logo } from '../components/ui/Logo';
 const inputWrapperClass = 'relative flex items-center';
 const iconClass = 'absolute left-3.5 h-4 w-4 text-content-faint';
 const inputClass =
-  'h-11 w-full rounded-xl border border-line bg-surface-raised pl-10 pr-4 text-sm text-content placeholder:text-content-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30';
+  'h-11 w-full rounded-xl border border-line bg-surface-raised pl-10 pr-12 text-sm text-content placeholder:text-content-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30';
 const labelClass = 'mb-1.5 block text-xs font-medium text-content-muted';
 
 export function LoginPage() {
@@ -24,6 +24,7 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Where to go after login (the page that sent us here, or dashboard)
   const from: string = (location.state as any)?.from ?? '/';
@@ -125,13 +126,21 @@ export function LoginPage() {
                   <input
                     id="password"
                     name="password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     placeholder="••••••••"
                     className={inputClass}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(s => !s)}
+                    className="absolute right-3.5 h-6 w-6 text-content-faint"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOffIcon className="h-6 w-6" /> : <EyeIcon className="h-6 w-6" />}
+                  </button>
                 </div>
               </div>
             )}
