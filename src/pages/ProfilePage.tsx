@@ -4,6 +4,7 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { CheckIcon, ShieldCheckIcon } from 'lucide-react';
+import { formatDate } from '../lib/format';
 
 const fieldClass =
   'h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content placeholder:text-content-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30';
@@ -172,6 +173,25 @@ export function ProfilePage() {
                 <div>
                   <label className={labelClass}>Job Title / Role</label>
                   <input className={`${fieldClass} opacity-60 cursor-not-allowed`} value={currentUser.role} disabled />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelClass}>Joined Date</label>
+                  <input
+                    className={`${fieldClass} opacity-60 cursor-not-allowed`}
+                    value={currentUser.joinDate ? formatDate(currentUser.joinDate) : '—'}
+                    disabled
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>End Date (Leaving Date)</label>
+                  <input
+                    className={`${fieldClass} opacity-60 cursor-not-allowed`}
+                    value={currentUser.endDate ? formatDate(currentUser.endDate) : '—'}
+                    disabled
+                  />
                 </div>
               </div>
 

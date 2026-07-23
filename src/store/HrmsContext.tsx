@@ -88,6 +88,7 @@ const mapEmployeeFromDb = (e: any): Employee => ({
   isActive: e.is_active !== false,
   isAdmin: !!e.is_admin,
   shift: e.shift || 'Morning Shift (9:00 AM - 5:00 PM)',
+  endDate: e.end_date || null,
 });
 
 const mapEmployeeToDb = (e: Partial<Employee>): any => {
@@ -114,6 +115,7 @@ const mapEmployeeToDb = (e: Partial<Employee>): any => {
   if (e.isActive !== undefined) res.is_active = e.isActive;
   if (e.isAdmin !== undefined) res.is_admin = e.isAdmin;
   if (e.shift !== undefined) res.shift = e.shift;
+  if (e.endDate !== undefined) res.end_date = e.endDate;
   return res;
 };
 
@@ -568,14 +570,34 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = useCallback(async (data: Partial<Employee>) => {
     if (!currentUser) return;
-    const updated = { ...currentUser, ...data };
+    
+    // Security check: restrict standard employees from modifying administrative fields
+    const allowedKeys: (keyof Employee)[] = [
+      'firstName',
+      'lastName',
+      'preferredName',
+      'email',
+      'phone',
+      'address',
+      'dateOfBirth',
+      'gender'
+    ];
+    
+    const filteredData: Partial<Employee> = {};
+    for (const key of allowedKeys) {
+      if (data[key] !== undefined) {
+        (filteredData as any)[key] = data[key];
+      }
+    }
+
+    const updated = { ...currentUser, ...filteredData };
 
     setCurrentUser(updated);
     setEmployees(prev => prev.map(e => e.id === currentUser.id ? updated : e));
 
     if (isLive && supabase) {
       try {
-        const dbRow = mapEmployeeToDb(data);
+        const dbRow = mapEmployeeToDb(filteredData);
         const { error } = await supabase.from('employees').update(dbRow).eq('id', currentUser.id);
         if (error) console.error('Failed to save profile in database:', error);
       } catch (err) {

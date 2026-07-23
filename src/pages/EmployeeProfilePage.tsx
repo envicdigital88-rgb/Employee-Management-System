@@ -72,6 +72,8 @@ export function EmployeeProfilePage() {
   const [editSalary, setEditSalary] = useState('');
   const [editShift, setEditShift] = useState('');
   const [editIsAdmin, setEditIsAdmin] = useState(false);
+  const [editJoinDate, setEditJoinDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
   const emp = employees.find((e) => e.id === id) ?? getEmployee(id ?? '');
 
   const openEdit = () => {
@@ -85,6 +87,8 @@ export function EmployeeProfilePage() {
     setEditSalary(String(emp.salary));
     setEditShift(emp.shift || 'Morning Shift (9:00 AM - 5:00 PM)');
     setEditIsAdmin(!!emp.isAdmin);
+    setEditJoinDate(emp.joinDate || '');
+    setEditEndDate(emp.endDate || '');
     setEditOpen(true);
   };
 
@@ -104,7 +108,9 @@ export function EmployeeProfilePage() {
         phone: editPhone,
         salary: Number(editSalary) || 0,
         shift: editShift,
-        isAdmin: editIsAdmin
+        isAdmin: editIsAdmin,
+        joinDate: editJoinDate,
+        endDate: editEndDate || null
       });
       showToast(`${fullName(emp)}'s profile has been updated successfully.`, 'success');
       setEditOpen(false);
@@ -306,6 +312,11 @@ export function EmployeeProfilePage() {
                   icon={CalendarIcon}
                   label="Join date"
                   value={formatDate(emp.joinDate)} />
+                
+                  <InfoRow
+                  icon={CalendarIcon}
+                  label="End date"
+                  value={emp.endDate ? formatDate(emp.endDate) : '—'} />
                 
                   <InfoRow
                   icon={MapPinIcon}
@@ -646,6 +657,24 @@ export function EmployeeProfilePage() {
                 <option value="employee">Employee (Standard Access)</option>
                 <option value="admin">Administrator (Full Access)</option>
               </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-content-muted">Join Date</label>
+              <input
+                type="date"
+                className="h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                value={editJoinDate}
+                onChange={e => setEditJoinDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-content-muted">End Date (Leaving Date)</label>
+              <input
+                type="date"
+                className="h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                value={editEndDate}
+                onChange={e => setEditEndDate(e.target.value)}
+              />
             </div>
           </div>
 

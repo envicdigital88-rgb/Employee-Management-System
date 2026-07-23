@@ -26,6 +26,8 @@ export function AddEmployeeModal({
   const [status, setStatus] = useState<EmployeeStatus>('Probation');
   const [isActive, setIsActive] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [joinDate, setJoinDate] = useState(new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState('');
   const [salary, setSalary] = useState('');
   const [shift, setShift] = useState('Morning Shift (9:00 AM - 5:00 PM)');
   const [tempPassword, setTempPassword] = useState('Password@123');
@@ -55,6 +57,8 @@ export function AddEmployeeModal({
     setTempPassword('Password@123');
     setIsActive(true);
     setIsAdmin(false);
+    setJoinDate(new Date().toISOString().slice(0, 10));
+    setEndDate('');
     setError('');
   };
   const submit = async (e: React.FormEvent) => {
@@ -89,7 +93,8 @@ export function AddEmployeeModal({
         role: role.trim(),
         status,
         employmentType,
-        joinDate: new Date().toISOString().slice(0, 10),
+        joinDate,
+        endDate: endDate || null,
         location: 'HQ',
         managerId: null,
         salary: Number(salary) || 90000,
@@ -263,7 +268,7 @@ export function AddEmployeeModal({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <label className={labelClass} htmlFor="userType">
               Account Type / Permissions
@@ -277,6 +282,31 @@ export function AddEmployeeModal({
               <option value="employee">Employee (Standard Access)</option>
               <option value="admin">Administrator (Full Access)</option>
             </select>
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="jd">
+              Join Date *
+            </label>
+            <input
+              id="jd"
+              type="date"
+              className={fieldClass}
+              value={joinDate}
+              onChange={(e) => setJoinDate(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="ed">
+              End Date (Optional)
+            </label>
+            <input
+              id="ed"
+              type="date"
+              className={fieldClass}
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
           </div>
         </div>
 

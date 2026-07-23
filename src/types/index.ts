@@ -36,6 +36,7 @@ export interface Employee {
   isActive?: boolean;
   isAdmin?: boolean;
   shift?: string;
+  endDate?: string | null;
 }
 
 export type AttendanceStatus =

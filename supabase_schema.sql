@@ -37,6 +37,7 @@ CREATE TABLE employees (
   status VARCHAR(50) NOT NULL,
   employment_type VARCHAR(50) NOT NULL,
   join_date DATE NOT NULL,
+  end_date DATE,
   location VARCHAR(255) NOT NULL,
   manager_id VARCHAR(50) REFERENCES employees(id) ON DELETE SET NULL,
   salary NUMERIC(15, 2) NOT NULL,
