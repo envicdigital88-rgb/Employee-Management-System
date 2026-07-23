@@ -1,18 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
+import { AvatarPicker } from '../ui/AvatarPicker';
 import { useHrms } from '../../store/HrmsContext';
 import { EmployeeStatus, EmploymentType } from '../../types';
+
 const fieldClass =
-'h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content placeholder:text-content-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30';
+  'h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content placeholder:text-content-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30';
 const labelClass = 'mb-1.5 block text-xs font-medium text-content-muted';
+
+
+
+// ─── Main modal ──────────────────────────────────────────────────────────────
 export function AddEmployeeModal({
   open,
-  onClose
-
-
-
-}: {open: boolean;onClose: () => void;}) {
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   const { addEmployee, departments } = useHrms();
   const [empId, setEmpId] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -21,8 +27,7 @@ export function AddEmployeeModal({
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
   const [departmentId, setDepartmentId] = useState('');
-  const [employmentType, setEmploymentType] =
-    useState<EmploymentType>('Full-time');
+  const [employmentType, setEmploymentType] = useState<EmploymentType>('Full-time');
   const [status, setStatus] = useState<EmployeeStatus>('Probation');
   const [isActive, setIsActive] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -31,47 +36,30 @@ export function AddEmployeeModal({
   const [salary, setSalary] = useState('');
   const [shift, setShift] = useState('Morning Shift (9:00 AM - 5:00 PM)');
   const [tempPassword, setTempPassword] = useState('Password@123');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (departments.length === 0) {
-      setDepartmentId('');
-      return;
-    }
+    if (departments.length === 0) { setDepartmentId(''); return; }
     const stillValid = departments.some((d) => d.id === departmentId);
-    if (!departmentId || !stillValid) {
-      setDepartmentId(departments[0].id);
-    }
+    if (!departmentId || !stillValid) setDepartmentId(departments[0].id);
   }, [departments, departmentId, open]);
 
   const reset = () => {
-    setEmpId('');
-    setFirstName('');
-    setLastName('');
-    setPreferredName('');
-    setEmail('');
-    setRole('');
-    setSalary('');
+    setEmpId(''); setFirstName(''); setLastName(''); setPreferredName('');
+    setEmail(''); setRole(''); setSalary(''); setAvatarUrl('');
     setShift('Morning Shift (9:00 AM - 5:00 PM)');
     setTempPassword('Password@123');
-    setIsActive(true);
-    setIsAdmin(false);
+    setIsActive(true); setIsAdmin(false);
     setJoinDate(new Date().toISOString().slice(0, 10));
-    setEndDate('');
-    setError('');
+    setEndDate(''); setError('');
   };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (
-      !empId.trim() ||
-      !firstName.trim() ||
-      !lastName.trim() ||
-      !email.trim() ||
-      !role.trim() ||
-      !tempPassword.trim() ||
-      !departmentId
-    ) {
+    if (!empId.trim() || !firstName.trim() || !lastName.trim() ||
+        !email.trim() || !role.trim() || !tempPassword.trim() || !departmentId) {
       setError('Please complete all required fields.');
       return;
     }
@@ -89,6 +77,7 @@ export function AddEmployeeModal({
         preferredName: preferredName.trim() || null,
         email: email.trim(),
         phone: '+1 415 555 0000',
+        avatarUrl: avatarUrl || undefined,
         departmentId,
         role: role.trim(),
         status,
@@ -103,7 +92,8 @@ export function AddEmployeeModal({
         address: '—',
         shift,
         isActive,
-        isAdmin
+        isAdmin,
+        nic: '',
       }, tempPassword.trim());
       reset();
       onClose();
@@ -113,200 +103,114 @@ export function AddEmployeeModal({
       setLoading(false);
     }
   };
+
   return (
-    <Modal open={open} onClose={onClose} title="Add employee" size="lg">
+    <Modal open={open} onClose={onClose} title="Add Employee" size="lg">
       <form onSubmit={submit} className="space-y-4">
+
+        {/* ── Profile Picture Picker ── */}
+        <AvatarPicker
+          fullName={firstName && lastName ? `${firstName} ${lastName}` : undefined}
+          value={avatarUrl}
+          onChange={setAvatarUrl}
+        />
+
+        {/* ── Basic Info ── */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelClass} htmlFor="empId">
-              Employee ID *
-            </label>
-            <input
-              id="empId"
-              className={fieldClass}
-              value={empId}
-              onChange={(e) => setEmpId(e.target.value)}
-              placeholder="e.g. EMP-1045" />
+            <label className={labelClass} htmlFor="empId">Employee ID *</label>
+            <input id="empId" className={fieldClass} value={empId}
+              onChange={(e) => setEmpId(e.target.value)} placeholder="e.g. EMP-1045" />
           </div>
           <div>
-            <label className={labelClass} htmlFor="preferredName">
-              Preferred Name
-            </label>
-            <input
-              id="preferredName"
-              className={fieldClass}
-              value={preferredName}
-              onChange={(e) => setPreferredName(e.target.value)}
-              placeholder="e.g. Jane" />
+            <label className={labelClass} htmlFor="preferredName">Preferred Name</label>
+            <input id="preferredName" className={fieldClass} value={preferredName}
+              onChange={(e) => setPreferredName(e.target.value)} placeholder="e.g. Jane" />
           </div>
         </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelClass} htmlFor="fn">
-              First name *
-            </label>
-            <input
-              id="fn"
-              className={fieldClass}
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder="Jane" />
-            
+            <label className={labelClass} htmlFor="fn">First name *</label>
+            <input id="fn" className={fieldClass} value={firstName}
+              onChange={(e) => setFirstName(e.target.value)} placeholder="Jane" />
           </div>
           <div>
-            <label className={labelClass} htmlFor="ln">
-              Last name *
-            </label>
-            <input
-              id="ln"
-              className={fieldClass}
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder="Doe" />
-            
+            <label className={labelClass} htmlFor="ln">Last name *</label>
+            <input id="ln" className={fieldClass} value={lastName}
+              onChange={(e) => setLastName(e.target.value)} placeholder="Doe" />
           </div>
         </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelClass} htmlFor="em">
-              Email *
-            </label>
-            <input
-              id="em"
-              type="email"
-              className={fieldClass}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="jane@envicdigital.com" />
-            
+            <label className={labelClass} htmlFor="em">Email *</label>
+            <input id="em" type="email" className={fieldClass} value={email}
+              onChange={(e) => setEmail(e.target.value)} placeholder="jane@envicdigital.com" />
           </div>
           <div>
-            <label className={labelClass} htmlFor="ro">
-              Job title *
-            </label>
-            <input
-              id="ro"
-              className={fieldClass}
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              placeholder="Product Designer" />
-            
+            <label className={labelClass} htmlFor="ro">Job title *</label>
+            <input id="ro" className={fieldClass} value={role}
+              onChange={(e) => setRole(e.target.value)} placeholder="Product Designer" />
           </div>
         </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelClass} htmlFor="de">
-              Department
-            </label>
-            <select
-              id="de"
-              className={fieldClass}
-              value={departmentId}
+            <label className={labelClass} htmlFor="de">Department</label>
+            <select id="de" className={fieldClass} value={departmentId}
               onChange={(e) => setDepartmentId(e.target.value)}
-              disabled={departments.length === 0}
-            >
-              {departments.length === 0 ? (
-                <option value="">No departments — add one first</option>
-              ) : (
-                departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))
-              )}
+              disabled={departments.length === 0}>
+              {departments.length === 0
+                ? <option value="">No departments — add one first</option>
+                : departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)
+              }
             </select>
           </div>
           <div>
-            <label className={labelClass} htmlFor="ty">
-              Employment type
-            </label>
-            <select
-              id="ty"
-              className={fieldClass}
-              value={employmentType}
-              onChange={(e) =>
-              setEmploymentType(e.target.value as EmploymentType)
-              }>
-              
+            <label className={labelClass} htmlFor="ty">Employment type</label>
+            <select id="ty" className={fieldClass} value={employmentType}
+              onChange={(e) => setEmploymentType(e.target.value as EmploymentType)}>
               {['Full-time', 'Part-time', 'Contract', 'Intern'].map((t) =>
-              <option key={t} value={t}>
-                  {t}
-                </option>
-              )}
+                <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
         </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelClass} htmlFor="st">
-              Employment Status
-            </label>
-            <select
-              id="st"
-              className={fieldClass}
-              value={status}
+            <label className={labelClass} htmlFor="st">Employment Status</label>
+            <select id="st" className={fieldClass} value={status}
               onChange={(e) => setStatus(e.target.value as EmployeeStatus)}>
-              {['Probation', 'Permanent'].map((s) =>
-              <option key={s} value={s}>
-                  {s}
-                </option>
-              )}
+              {['Probation', 'Permanent'].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div>
-            <label className={labelClass} htmlFor="sa">
-              Annual salary (USD)
-            </label>
-            <input
-              id="sa"
-              type="number"
-              className={fieldClass}
-              value={salary}
-              onChange={(e) => setSalary(e.target.value)}
-              placeholder="120000" />
-            
+            <label className={labelClass} htmlFor="sa">Annual salary (USD)</label>
+            <input id="sa" type="number" className={fieldClass} value={salary}
+              onChange={(e) => setSalary(e.target.value)} placeholder="120000" />
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <label className={labelClass} htmlFor="userType">
-              Account Type / Permissions
-            </label>
-            <select
-              id="userType"
-              className={fieldClass}
+            <label className={labelClass} htmlFor="userType">Account Type / Permissions</label>
+            <select id="userType" className={fieldClass}
               value={isAdmin ? 'admin' : 'employee'}
-              onChange={(e) => setIsAdmin(e.target.value === 'admin')}
-            >
+              onChange={(e) => setIsAdmin(e.target.value === 'admin')}>
               <option value="employee">Employee (Standard Access)</option>
               <option value="admin">Administrator (Full Access)</option>
             </select>
           </div>
           <div>
-            <label className={labelClass} htmlFor="jd">
-              Join Date *
-            </label>
-            <input
-              id="jd"
-              type="date"
-              className={fieldClass}
-              value={joinDate}
-              onChange={(e) => setJoinDate(e.target.value)}
-              required
-            />
+            <label className={labelClass} htmlFor="jd">Join Date *</label>
+            <input id="jd" type="date" className={fieldClass} value={joinDate}
+              onChange={(e) => setJoinDate(e.target.value)} required />
           </div>
           <div>
-            <label className={labelClass} htmlFor="ed">
-              End Date (Optional)
-            </label>
-            <input
-              id="ed"
-              type="date"
-              className={fieldClass}
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
+            <label className={labelClass} htmlFor="ed">End Date (Optional)</label>
+            <input id="ed" type="date" className={fieldClass} value={endDate}
+              onChange={(e) => setEndDate(e.target.value)} />
           </div>
         </div>
 
@@ -325,73 +229,49 @@ export function AddEmployeeModal({
             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent/50 ${
               isActive ? 'bg-emerald-500' : 'bg-surface'
             }`}
-            aria-label="Toggle account active"
-          >
-            <span
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                isActive ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
+            aria-label="Toggle account active">
+            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+              isActive ? 'translate-x-5' : 'translate-x-0'
+            }`} />
           </button>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelClass} htmlFor="tp">
-              Temporary Password for Employee Portal *
-            </label>
-            <input
-              id="tp"
-              type="text"
-              className={fieldClass}
-              value={tempPassword}
+            <label className={labelClass} htmlFor="tp">Temporary Password for Employee Portal *</label>
+            <input id="tp" type="text" className={fieldClass} value={tempPassword}
               onChange={(e) => setTempPassword(e.target.value)}
-              placeholder="Password@123"
-              required
-            />
+              placeholder="Password@123" required />
           </div>
           <div>
-            <label className={labelClass} htmlFor="sh">
-              Work Shift *
-            </label>
-            <select
-              id="sh"
-              className={fieldClass}
-              value={shift}
-              onChange={(e) => setShift(e.target.value)}
-            >
+            <label className={labelClass} htmlFor="sh">Work Shift *</label>
+            <select id="sh" className={fieldClass} value={shift}
+              onChange={(e) => setShift(e.target.value)}>
               {[
                 'Morning Shift (9:00 AM - 5:00 PM)',
                 'Mid Shift (10:30 AM - 6:30 PM)',
                 'Afternoon Shift (1:30 PM - 10:30 PM)',
                 'Evening Shift (5:00 PM - 1:00 AM)',
                 'Night Shift (1:00 AM - 9:00 AM)',
-                'Flexible Shift'
-              ].map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
+                'Flexible Shift',
+              ].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
         </div>
 
-        {error &&
-        <p
-          className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400"
-          role="alert">
-          
+        {error && (
+          <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400" role="alert">
             {error}
           </p>
-        }
+        )}
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
-            Cancel
-          </Button>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>Cancel</Button>
           <Button type="submit" variant="primary" disabled={loading}>
-            {loading ? 'Adding...' : 'Add employee'}
+            {loading ? 'Adding...' : 'Add Employee'}
           </Button>
         </div>
       </form>
-    </Modal>);
-
+    </Modal>
+  );
 }

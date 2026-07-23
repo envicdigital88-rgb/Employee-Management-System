@@ -23,6 +23,7 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { showToast } from '../components/ui/Toast';
+import { AvatarPicker } from '../components/ui/AvatarPicker';
 import { useHrms } from '../store/HrmsContext';
 import { fullName } from '../data/employees';
 import {
@@ -74,6 +75,7 @@ export function EmployeeProfilePage() {
   const [editIsAdmin, setEditIsAdmin] = useState(false);
   const [editJoinDate, setEditJoinDate] = useState('');
   const [editEndDate, setEditEndDate] = useState('');
+  const [editAvatarUrl, setEditAvatarUrl] = useState('');
   const emp = employees.find((e) => e.id === id) ?? getEmployee(id ?? '');
 
   const openEdit = () => {
@@ -89,6 +91,7 @@ export function EmployeeProfilePage() {
     setEditIsAdmin(!!emp.isAdmin);
     setEditJoinDate(emp.joinDate || '');
     setEditEndDate(emp.endDate || '');
+    setEditAvatarUrl(emp.avatarUrl || '');
     setEditOpen(true);
   };
 
@@ -110,7 +113,8 @@ export function EmployeeProfilePage() {
         shift: editShift,
         isAdmin: editIsAdmin,
         joinDate: editJoinDate,
-        endDate: editEndDate || null
+        endDate: editEndDate || null,
+        avatarUrl: editAvatarUrl || undefined,
       });
       showToast(`${fullName(emp)}'s profile has been updated successfully.`, 'success');
       setEditOpen(false);
@@ -570,6 +574,13 @@ export function EmployeeProfilePage() {
       {/* Edit Employee Modal */}
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title={`Edit ${fullName(emp)}`}>
         <div className="space-y-4">
+          {/* ── Profile Picture Picker ── */}
+          <AvatarPicker
+            fullName={fullName(emp)}
+            value={editAvatarUrl}
+            onChange={setEditAvatarUrl}
+          />
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-content-muted">Role / Title</label>

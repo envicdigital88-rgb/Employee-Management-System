@@ -233,7 +233,7 @@ interface HrmsState {
   addDepartment: (data: Omit<Department, 'colorHex'> & { colorHex?: string }) => Promise<void>;
   updateDepartment: (id: string, data: Partial<Omit<Department, 'id'>>) => Promise<void>;
   deleteDepartment: (id: string) => Promise<void>;
-  addEmployee: (e: Omit<Employee, 'avatarUrl'>, tempPassword?: string) => Promise<void>;
+  addEmployee: (e: Omit<Employee, 'avatarUrl'> & { avatarUrl?: string }, tempPassword?: string) => Promise<void>;
   updateEmployee: (id: string, data: Partial<Employee>) => Promise<void>;
   deleteEmployee: (id: string) => Promise<void>;
   updateEmployeeStatus: (ids: string[], status: EmployeeStatus) => Promise<void>;
@@ -1014,7 +1014,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       }
 
       const name = `${data.firstName} ${data.lastName}`;
-      const avatarUrl = avatar(name);
+      const avatarUrl = (data as any).avatarUrl || avatar(name);
 
       const newEmp: Employee = {
         ...data,
