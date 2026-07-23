@@ -159,6 +159,7 @@ INSERT INTO departments (id, name, budget, location, color_hex) VALUES ('DEP-DS'
 
 
 -- Seeding Employees
+INSERT INTO employees (id, first_name, last_name, email, phone, avatar_url, department_id, role, status, employment_type, join_date, location, manager_id, salary, gender, date_of_birth, address) VALUES ('EMP-1000', 'Damien', 'Admin', 'damien@envicglobal.com', '+1 555 555 5555', 'https://api.dicebear.com/7.x/notionists/svg?seed=Damien%20Admin&backgroundColor=14171c,1a1d23,262a31&radius=50', 'DEP-ENG', 'Administrator', 'Permanent', 'Full-time', '2026-07-14', 'San Francisco, US', NULL, 150000, 'Male', '1990-01-01', '100 Main St, San Francisco, CA');
 INSERT INTO employees (id, first_name, last_name, email, phone, avatar_url, department_id, role, status, employment_type, join_date, location, manager_id, salary, gender, date_of_birth, address) VALUES ('EMP-1001', 'Nadia', 'Karim', 'nadia.karim@envicdigital.com', '+1 415 555 0101', 'https://api.dicebear.com/7.x/notionists/svg?seed=Nadia%20Karim&backgroundColor=14171c,1a1d23,262a31&radius=50', 'DEP-ENG', 'VP of Engineering', 'Active', 'Full-time', '2019-03-12', 'San Francisco, US', NULL, 245000, 'Female', '1986-07-21', '210 Mission St, San Francisco, CA');
 INSERT INTO employees (id, first_name, last_name, email, phone, avatar_url, department_id, role, status, employment_type, join_date, location, manager_id, salary, gender, date_of_birth, address) VALUES ('EMP-1002', 'Marcus', 'Reyes', 'marcus.reyes@envicdigital.com', '+1 415 555 0102', 'https://api.dicebear.com/7.x/notionists/svg?seed=Marcus%20Reyes&backgroundColor=14171c,1a1d23,262a31&radius=50', 'DEP-ENG', 'Senior Backend Engineer', 'Active', 'Full-time', '2020-06-01', 'Austin, US', 'EMP-1001', 168000, 'Male', '1990-02-15', '88 Congress Ave, Austin, TX');
 INSERT INTO employees (id, first_name, last_name, email, phone, avatar_url, department_id, role, status, employment_type, join_date, location, manager_id, salary, gender, date_of_birth, address) VALUES ('EMP-1003', 'Priya', 'Nair', 'priya.nair@envicdigital.com', '+1 415 555 0103', 'https://api.dicebear.com/7.x/notionists/svg?seed=Priya%20Nair&backgroundColor=14171c,1a1d23,262a31&radius=50', 'DEP-ENG', 'Frontend Engineer', 'Active', 'Full-time', '2021-09-20', 'Remote', 'EMP-1001', 142000, 'Female', '1993-11-03', 'Remote — Bengaluru, IN');
@@ -592,5 +593,5 @@ ALTER TABLE onboarding_tasks DISABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_feed DISABLE ROW LEVEL SECURITY;
 
 -- Set admin flags for seeded administrators
-UPDATE employees SET is_admin = TRUE WHERE id IN ('EMP-1001', 'EMP-1030');
+UPDATE employees SET is_admin = TRUE WHERE id IN ('EMP-1000', 'EMP-1001', 'EMP-1030');
 

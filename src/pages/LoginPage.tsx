@@ -203,7 +203,7 @@ export function LoginPage() {
             </p>
             <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => handleQuickLogin('nadia.karim@envicdigital.com')}
+                onClick={() => handleQuickLogin('damien@envicglobal.com')}
                 className="flex items-center justify-between rounded-lg bg-surface px-3 py-2 text-xs font-medium text-content hover:bg-white/5 border border-line transition-colors"
               >
                 <span>Admin View</span>

@@ -25,6 +25,7 @@ export function AddEmployeeModal({
     useState<EmploymentType>('Full-time');
   const [status, setStatus] = useState<EmployeeStatus>('Probation');
   const [isActive, setIsActive] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [salary, setSalary] = useState('');
   const [shift, setShift] = useState('Morning Shift (9:00 AM - 5:00 PM)');
   const [tempPassword, setTempPassword] = useState('Password@123');
@@ -53,6 +54,7 @@ export function AddEmployeeModal({
     setShift('Morning Shift (9:00 AM - 5:00 PM)');
     setTempPassword('Password@123');
     setIsActive(true);
+    setIsAdmin(false);
     setError('');
   };
   const submit = async (e: React.FormEvent) => {
@@ -95,7 +97,8 @@ export function AddEmployeeModal({
         dateOfBirth: '1995-01-01',
         address: '—',
         shift,
-        isActive
+        isActive,
+        isAdmin
       }, tempPassword.trim());
       reset();
       onClose();
@@ -257,6 +260,23 @@ export function AddEmployeeModal({
               onChange={(e) => setSalary(e.target.value)}
               placeholder="120000" />
             
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelClass} htmlFor="userType">
+              Account Type / Permissions
+            </label>
+            <select
+              id="userType"
+              className={fieldClass}
+              value={isAdmin ? 'admin' : 'employee'}
+              onChange={(e) => setIsAdmin(e.target.value === 'admin')}
+            >
+              <option value="employee">Employee (Standard Access)</option>
+              <option value="admin">Administrator (Full Access)</option>
+            </select>
           </div>
         </div>
 

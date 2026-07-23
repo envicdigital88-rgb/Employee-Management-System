@@ -300,9 +300,14 @@ export function EmployeesPage() {
                           size="sm" />
                         
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-content group-hover:text-accent transition-colors">
-                            {fullName(e)}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="truncate font-medium text-content group-hover:text-accent transition-colors">
+                              {fullName(e)}
+                            </p>
+                            {e.isAdmin && (
+                              <Badge tone="purple">Admin</Badge>
+                            )}
+                          </div>
                           <p className="truncate text-xs text-content-faint">
                             {e.id}
                           </p>

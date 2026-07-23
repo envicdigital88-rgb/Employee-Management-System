@@ -331,7 +331,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
   const isAdmin = useMemo(() => {
     if (!currentUser) return false;
-    return !!currentUser.isAdmin || currentUser.email === 'nadia.karim@envicdigital.com';
+    return !!currentUser.isAdmin || currentUser.email === 'nadia.karim@envicdigital.com' || currentUser.email === 'damien@envicglobal.com';
   }, [currentUser]);
 
   // ─── Initial load: fetch all data + restore auth session ────────────────────

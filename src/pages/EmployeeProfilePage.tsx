@@ -71,6 +71,7 @@ export function EmployeeProfilePage() {
   const [editPhone, setEditPhone] = useState('');
   const [editSalary, setEditSalary] = useState('');
   const [editShift, setEditShift] = useState('');
+  const [editIsAdmin, setEditIsAdmin] = useState(false);
   const emp = employees.find((e) => e.id === id) ?? getEmployee(id ?? '');
 
   const openEdit = () => {
@@ -83,6 +84,7 @@ export function EmployeeProfilePage() {
     setEditPhone(emp.phone);
     setEditSalary(String(emp.salary));
     setEditShift(emp.shift || 'Morning Shift (9:00 AM - 5:00 PM)');
+    setEditIsAdmin(!!emp.isAdmin);
     setEditOpen(true);
   };
 
@@ -101,7 +103,8 @@ export function EmployeeProfilePage() {
         location: editLocation,
         phone: editPhone,
         salary: Number(editSalary) || 0,
-        shift: editShift
+        shift: editShift,
+        isAdmin: editIsAdmin
       });
       showToast(`${fullName(emp)}'s profile has been updated successfully.`, 'success');
       setEditOpen(false);
@@ -181,6 +184,11 @@ export function EmployeeProfilePage() {
               <Badge tone={employeeStatusTone[emp.status]} dot>
                 {emp.status}
               </Badge>
+              {emp.isAdmin && (
+                <Badge tone="purple" dot>
+                  Admin
+                </Badge>
+              )}
               <Badge tone={emp.isActive !== false ? 'green' : 'red'} dot>
                 <ShieldCheckIcon className="h-3 w-3 mr-1 inline-block" />
                 {emp.isActive !== false ? 'Account Active' : 'Account Inactive'}
@@ -626,6 +634,17 @@ export function EmployeeProfilePage() {
                 ].map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-content-muted">Account Type / Permissions</label>
+              <select
+                className="h-10 w-full rounded-xl border border-line bg-surface-raised px-3 text-sm text-content focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                value={editIsAdmin ? 'admin' : 'employee'}
+                onChange={e => setEditIsAdmin(e.target.value === 'admin')}
+              >
+                <option value="employee">Employee (Standard Access)</option>
+                <option value="admin">Administrator (Full Access)</option>
               </select>
             </div>
           </div>

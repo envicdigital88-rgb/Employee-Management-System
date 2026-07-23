@@ -81,7 +81,7 @@ export function ResetPasswordPage() {
         const refresh_token = params.get('refresh_token');
 
         if (access_token) {
-          const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+          const { error } = await supabase.auth.setSession({ access_token, refresh_token: refresh_token || '' });
           if (error) throw error;
           setReady(true);
           return;
@@ -112,6 +112,12 @@ export function ResetPasswordPage() {
           {error && (
             <div className="mb-4 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-400">
               {error}
+            </div>
+          )}
+
+          {notice && (
+            <div className="mb-4 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs text-blue-400">
+              {notice}
             </div>
           )}
 
