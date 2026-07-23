@@ -3,7 +3,9 @@ import { useHrms } from '../store/HrmsContext';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { CheckIcon, ShieldCheckIcon } from 'lucide-react';
+import { Avatar } from '../components/ui/Avatar';
+import { AvatarPicker } from '../components/ui/AvatarPicker';
+import { CheckIcon, ShieldCheckIcon, CameraIcon } from 'lucide-react';
 import { formatDate } from '../lib/format';
 
 const fieldClass =
@@ -22,6 +24,11 @@ export function ProfilePage() {
   const [address, setAddress] = useState(currentUser?.address || '');
   const [dob, setDob] = useState(currentUser?.dateOfBirth || '');
   const [gender, setGender] = useState(currentUser?.gender || 'Other');
+
+  // Avatar state
+  const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl || '');
+  const [avatarSaved, setAvatarSaved] = useState(false);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   
   // Password forms state
   const [password, setPassword] = useState('');
@@ -33,6 +40,8 @@ export function ProfilePage() {
   const [errorPassword, setErrorPassword] = useState<string | null>(null);
 
   if (!currentUser) return null;
+
+  const fullName = `${currentUser.firstName} ${currentUser.lastName}`;
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +68,18 @@ export function ProfilePage() {
       setTimeout(() => setProfileSaved(false), 3000);
     } catch (err: any) {
       setErrorProfile(err.message || 'Failed to update profile.');
+    }
+  };
+
+  const handleSaveAvatar = async () => {
+    try {
+      await updateProfile({ avatarUrl });
+      setAvatarSaved(true);
+      setAvatarPickerOpen(false);
+      setTimeout(() => setAvatarSaved(false), 3000);
+    } catch (err: any) {
+      // silently log — avatar save is non-critical
+      console.error('Failed to save avatar:', err);
     }
   };
 
@@ -258,8 +279,97 @@ export function ProfilePage() {
           </Card>
         </div>
 
-        {/* Right column: Security / Change Password */}
-        <div>
+        {/* Right column: Profile Picture + Security */}
+        <div className="space-y-6">
+
+          {/* ── Profile Picture Card ── */}
+          <Card>
+            <CardHeader
+              title="Profile Picture"
+              subtitle="Your avatar shown across the portal"
+            />
+            <div className="p-5 space-y-4">
+
+              {/* Current avatar preview */}
+              <div className="flex flex-col items-center gap-3">
+                <div className="relative">
+                  <Avatar
+                    src={avatarUrl || currentUser.avatarUrl}
+                    name={fullName}
+                    size="xl"
+                    ring
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setAvatarPickerOpen(p => !p)}
+                    className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-accent shadow-lg border-2 border-canvas transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    aria-label="Change profile picture"
+                  >
+                    <CameraIcon className="h-4 w-4 text-white" />
+                  </button>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-content">{fullName}</p>
+                  <p className="text-xs text-content-faint">{currentUser.role}</p>
+                </div>
+              </div>
+
+              {/* Avatar saved confirmation */}
+              {avatarSaved && (
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-2.5 text-xs text-emerald-400 flex items-center gap-1.5">
+                  <CheckIcon className="h-4 w-4" />
+                  <span>Profile picture updated!</span>
+                </div>
+              )}
+
+              {/* Picker — toggled by camera button */}
+              {avatarPickerOpen && (
+                <div className="space-y-3">
+                  <AvatarPicker
+                    fullName={fullName}
+                    value={avatarUrl}
+                    onChange={setAvatarUrl}
+                    compact
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      className="flex-1"
+                      onClick={handleSaveAvatar}
+                    >
+                      Save Picture
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setAvatarUrl(currentUser.avatarUrl || '');
+                        setAvatarPickerOpen(false);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Open picker button when closed */}
+              {!avatarPickerOpen && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => setAvatarPickerOpen(true)}
+                >
+                  <CameraIcon className="h-4 w-4" />
+                  Change Profile Picture
+                </Button>
+              )}
+            </div>
+          </Card>
+
+          {/* ── Account Security Card ── */}
           <Card>
             <CardHeader
               title="Account Security"
@@ -319,4 +429,3 @@ export function ProfilePage() {
     </div>
   );
 }
-
