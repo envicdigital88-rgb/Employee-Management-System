@@ -28,7 +28,12 @@ const getCredentials = () => {
 export const { url: supabaseUrl, key: supabaseAnonKey } = getCredentials();
 
 export const supabase = supabaseUrl && supabaseAnonKey 
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        storage: window.sessionStorage,
+        persistSession: true
+      }
+    })
   : null;
 
 export const isSupabaseConfigured = () => !!supabase;

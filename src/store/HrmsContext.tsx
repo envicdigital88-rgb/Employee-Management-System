@@ -8,6 +8,7 @@ import {
   useContext
 } from 'react';
 import { ReactNode } from 'react';
+import { showToast } from '../components/ui/Toast';
 import {
   Employee,
   LeaveRequest,
@@ -222,6 +223,11 @@ interface HrmsState {
   // Auth State
   currentUser: Employee | null;
   isAdmin: boolean;
+
+  // Session Warning
+  showSessionWarning: boolean;
+  sessionCountdown: number;
+  extendSession: () => void;
   
   // Mutations
   addDepartment: (data: Omit<Department, 'colorHex'> & { colorHex?: string }) => Promise<void>;
@@ -344,12 +350,12 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         console.log('Supabase not configured. Running in Demo Mode.');
         setIsLive(false);
 
-        const demoEmail = window.localStorage.getItem('DEMO_USER_EMAIL');
+        const demoEmail = window.sessionStorage.getItem('DEMO_USER_EMAIL');
         if (demoEmail) {
           // seedEmployees are already in initial state — resolve immediately
           const found = employees.find(e => e.email.toLowerCase() === demoEmail.toLowerCase());
           if (found && isAccountActive(found)) setCurrentUser(found);
-          else window.localStorage.removeItem('DEMO_USER_EMAIL'); // stale key
+          else window.sessionStorage.removeItem('DEMO_USER_EMAIL'); // stale key
         }
 
         setIsLoading(false);
@@ -435,7 +441,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         setIsLive(false);
 
         // Try to restore demo session even after a DB error
-        const demoEmail = window.localStorage.getItem('DEMO_USER_EMAIL');
+        const demoEmail = window.sessionStorage.getItem('DEMO_USER_EMAIL');
         if (demoEmail) {
           const found = employees.find(e => e.email.toLowerCase() === demoEmail.toLowerCase());
           if (found && isAccountActive(found)) setCurrentUser(found);
@@ -477,15 +483,87 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [isLive, employees]);
 
-  // ─── Resolve pending auth once employees array is populated ──────────────────
+  // ─── Session Warning + Inactivity Timeout ────────────────────────────────
+  const [showSessionWarning, setShowSessionWarning] = useState(false);
+  const [sessionCountdown, setSessionCountdown] = useState(60);
+
+  const sessionWarningTimerRef = useRef<any>(null);
+  const sessionExpireTimerRef  = useRef<any>(null);
+  const sessionCountdownRef    = useRef<any>(null);
+
+  // Use a ref so startSessionTimers can call logout without a forward-reference issue
+  const logoutRef = useRef<(() => Promise<void>) | null>(null);
+
+  const clearSessionTimers = useCallback(() => {
+    if (sessionWarningTimerRef.current)  clearTimeout(sessionWarningTimerRef.current);
+    if (sessionExpireTimerRef.current)   clearTimeout(sessionExpireTimerRef.current);
+    if (sessionCountdownRef.current)     clearInterval(sessionCountdownRef.current);
+    sessionWarningTimerRef.current = null;
+    sessionExpireTimerRef.current  = null;
+    sessionCountdownRef.current    = null;
+  }, []);
+
+  const startSessionTimers = useCallback(() => {
+    clearSessionTimers();
+    setShowSessionWarning(false);
+    setSessionCountdown(60);
+
+    const WARNING_BEFORE_EXPIRE = 60 * 1000;        // show warning 60 s before
+    const TOTAL_INACTIVE        = 15 * 60 * 1000;   // 15 minutes total
+    const WARN_DELAY = TOTAL_INACTIVE - WARNING_BEFORE_EXPIRE;
+
+    // Fire warning modal 14 minutes in
+    sessionWarningTimerRef.current = setTimeout(() => {
+      setShowSessionWarning(true);
+      setSessionCountdown(60);
+
+      // Tick countdown every second
+      sessionCountdownRef.current = setInterval(() => {
+        setSessionCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(sessionCountdownRef.current);
+            sessionCountdownRef.current = null;
+          }
+          return Math.max(0, prev - 1);
+        });
+      }, 1000);
+
+      // Hard-logout 60 s after warning appears
+      sessionExpireTimerRef.current = setTimeout(async () => {
+        setShowSessionWarning(false);
+        if (logoutRef.current) await logoutRef.current();
+        showToast('Your session has expired due to inactivity. Please sign in again.', 'info');
+      }, WARNING_BEFORE_EXPIRE);
+    }, WARN_DELAY);
+  }, [clearSessionTimers]);
+
+  // Reset timers on any user activity
   useEffect(() => {
-    if (!pendingAuthEmailRef.current || employees.length === 0) return;
-    const found = employees.find(e => e.email.toLowerCase() === pendingAuthEmailRef.current!);
-    if (found && isAccountActive(found)) {
-      setCurrentUser(found);
-      pendingAuthEmailRef.current = null;
+    if (!currentUser) {
+      clearSessionTimers();
+      setShowSessionWarning(false);
+      return;
     }
-  }, [employees]);
+
+    const handleActivity = () => startSessionTimers();
+    const events = ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart', 'click'];
+    events.forEach(ev => window.addEventListener(ev, handleActivity, { passive: true }));
+
+    startSessionTimers(); // start immediately on login
+
+    return () => {
+      clearSessionTimers();
+      events.forEach(ev => window.removeEventListener(ev, handleActivity));
+    };
+  }, [currentUser, startSessionTimers, clearSessionTimers]);
+
+  // "Stay Signed In" — reset the whole inactivity clock
+  const extendSession = useCallback(() => {
+    setShowSessionWarning(false);
+    setSessionCountdown(60);
+    clearSessionTimers();
+    startSessionTimers();
+  }, [clearSessionTimers, startSessionTimers]);
 
 
   // Auth Operations
@@ -510,7 +588,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     } else {
       // Demo Mode login
       setCurrentUser(foundEmployee);
-      window.localStorage.setItem('DEMO_USER_EMAIL', foundEmployee.email);
+      window.sessionStorage.setItem('DEMO_USER_EMAIL', foundEmployee.email);
     }
   }, [employees, isLive]);
 
@@ -535,7 +613,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     } else {
       // Demo Mode signup
       setCurrentUser(foundEmployee);
-      window.localStorage.setItem('DEMO_USER_EMAIL', foundEmployee.email);
+      window.sessionStorage.setItem('DEMO_USER_EMAIL', foundEmployee.email);
     }
   }, [employees, isLive]);
 
@@ -543,10 +621,13 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     if (isLive && supabase) {
       await supabase.auth.signOut();
     } else {
-      window.localStorage.removeItem('DEMO_USER_EMAIL');
+      window.sessionStorage.removeItem('DEMO_USER_EMAIL');
     }
     setCurrentUser(null);
   }, [isLive]);
+
+  // Keep the ref in sync so the session timer can always call the latest logout
+  logoutRef.current = logout;
 
   const resetPassword = useCallback(async (email: string) => {
     if (isLive && supabase) {
@@ -1065,7 +1146,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         if (isLive && supabase) {
           await supabase.auth.signOut();
         } else {
-          window.localStorage.removeItem('DEMO_USER_EMAIL');
+          window.sessionStorage.removeItem('DEMO_USER_EMAIL');
         }
         setCurrentUser(null);
       }
@@ -1289,6 +1370,9 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       connectionError,
       currentUser,
       isAdmin,
+      showSessionWarning,
+      sessionCountdown,
+      extendSession,
       addDepartment,
       updateDepartment,
       deleteDepartment,
@@ -1334,6 +1418,9 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       authLoading,
       isLive,
       connectionError,
+      showSessionWarning,
+      sessionCountdown,
+      extendSession,
       currentUser,
       isAdmin,
       addDepartment,

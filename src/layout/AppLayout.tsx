@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { AddEmployeeModal } from '../components/employees/AddEmployeeModal';
+import { SessionTimeoutModal } from '../components/ui/SessionTimeoutModal';
 import { useHrms } from '../store/HrmsContext';
 
 export function AppLayout() {
@@ -15,7 +16,7 @@ export function AppLayout() {
   const outlet = useOutlet({
     openAddEmployee: () => setAddOpen(true)
   });
-  const { isLive, currentUser, isLoading } = useHrms();
+  const { isLive, currentUser, isLoading, showSessionWarning, sessionCountdown, extendSession, logout } = useHrms();
 
   // While we're figuring out auth, show the spinner
   if (isLoading) {
@@ -134,6 +135,14 @@ export function AppLayout() {
       </div>
 
       <AddEmployeeModal open={addOpen} onClose={() => setAddOpen(false)} />
+
+      {/* Session expiry warning — rendered globally so it overlays everything */}
+      <SessionTimeoutModal
+        open={showSessionWarning}
+        secondsRemaining={sessionCountdown}
+        onExtend={extendSession}
+        onLogout={logout}
+      />
     </div>
   );
 }
