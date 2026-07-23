@@ -14,7 +14,11 @@ import {
   SaveIcon,
   ClockIcon,
   Trash2Icon,
-  ShieldCheckIcon } from
+  ShieldCheckIcon,
+  KeyRoundIcon,
+  AlertTriangleIcon,
+  EyeIcon,
+  EyeOffIcon } from
 'lucide-react';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -54,6 +58,7 @@ export function EmployeeProfilePage() {
     getReviewsForEmployee, 
     getLeaveBalance,
     updateEmployee,
+    changeEmployeeEmail,
     deleteEmployee,
     isAdmin,
     departments
@@ -76,6 +81,9 @@ export function EmployeeProfilePage() {
   const [editJoinDate, setEditJoinDate] = useState('');
   const [editEndDate, setEditEndDate] = useState('');
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editTempPassword, setEditTempPassword] = useState('');
+  const [showTempPw, setShowTempPw] = useState(false);
   const emp = employees.find((e) => e.id === id) ?? getEmployee(id ?? '');
 
   const openEdit = () => {
@@ -92,6 +100,9 @@ export function EmployeeProfilePage() {
     setEditJoinDate(emp.joinDate || '');
     setEditEndDate(emp.endDate || '');
     setEditAvatarUrl(emp.avatarUrl || '');
+    setEditEmail(emp.email || '');
+    setEditTempPassword('');
+    setShowTempPw(false);
     setEditOpen(true);
   };
 
@@ -101,21 +112,40 @@ export function EmployeeProfilePage() {
 
   const doEditSave = async () => {
     if (!emp) return;
+    const emailChanged = editEmail.trim().toLowerCase() !== emp.email.toLowerCase();
     try {
-      await updateEmployee(emp.id, {
-        role: editRole,
-        status: editStatus,
-        isActive: editIsActive,
-        departmentId: editDept,
-        location: editLocation,
-        phone: editPhone,
-        salary: Number(editSalary) || 0,
-        shift: editShift,
-        isAdmin: editIsAdmin,
-        joinDate: editJoinDate,
-        endDate: editEndDate || null,
-        avatarUrl: editAvatarUrl || undefined,
-      });
+      if (emailChanged) {
+        // changeEmployeeEmail handles email update + other fields + auth + notification
+        await changeEmployeeEmail(emp.id, editEmail, editTempPassword, {
+          role: editRole,
+          status: editStatus,
+          isActive: editIsActive,
+          departmentId: editDept,
+          location: editLocation,
+          phone: editPhone,
+          salary: Number(editSalary) || 0,
+          shift: editShift,
+          isAdmin: editIsAdmin,
+          joinDate: editJoinDate,
+          endDate: editEndDate || null,
+          avatarUrl: editAvatarUrl || undefined,
+        });
+      } else {
+        await updateEmployee(emp.id, {
+          role: editRole,
+          status: editStatus,
+          isActive: editIsActive,
+          departmentId: editDept,
+          location: editLocation,
+          phone: editPhone,
+          salary: Number(editSalary) || 0,
+          shift: editShift,
+          isAdmin: editIsAdmin,
+          joinDate: editJoinDate,
+          endDate: editEndDate || null,
+          avatarUrl: editAvatarUrl || undefined,
+        });
+      }
       showToast(`${fullName(emp)}'s profile has been updated successfully.`, 'success');
       setEditOpen(false);
     } catch (err: any) {
@@ -689,6 +719,64 @@ export function EmployeeProfilePage() {
             </div>
           </div>
 
+          {/* Email Address + Temp Password (email change) */}
+          <div className="rounded-xl border border-line bg-surface-raised px-4 py-3 space-y-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-content-muted">
+                <MailIcon className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
+                Email Address
+              </label>
+              <input
+                type="email"
+                className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm text-content focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                value={editEmail}
+                onChange={e => setEditEmail(e.target.value)}
+                placeholder="employee@company.com"
+              />
+            </div>
+
+            {/* Temp password — only shown when email has changed */}
+            {editEmail.trim().toLowerCase() !== emp.email.toLowerCase() && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangleIcon className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-semibold text-amber-300">Email address changed</p>
+                    <p className="text-[11px] text-amber-400/80 mt-0.5">
+                      You must set a temporary password so the employee can log in with their new email.
+                      They can reset it from their profile afterwards.
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-amber-300">
+                    <KeyRoundIcon className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
+                    Temporary Password <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="relative flex items-center">
+                    <input
+                      type={showTempPw ? 'text' : 'password'}
+                      className="h-10 w-full rounded-xl border border-amber-500/40 bg-surface px-3 pr-10 text-sm text-content placeholder:text-content-faint focus:border-amber-400/60 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
+                      value={editTempPassword}
+                      onChange={e => setEditTempPassword(e.target.value)}
+                      placeholder="Min. 6 characters"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowTempPw(p => !p)}
+                      className="absolute right-3 text-content-faint hover:text-content transition-colors"
+                      aria-label={showTempPw ? 'Hide password' : 'Show password'}
+                    >
+                      {showTempPw
+                        ? <EyeOffIcon className="h-4 w-4" />
+                        : <EyeIcon className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Account Active toggle */}
           <div className="flex items-center justify-between rounded-xl border border-line bg-surface-raised px-4 py-3">
             <div>
@@ -730,7 +818,11 @@ export function EmployeeProfilePage() {
         onClose={() => setConfirmEdit(false)}
         onConfirm={doEditSave}
         title="Save Employee Changes"
-        message={`Are you sure you want to update the profile for ${fullName(emp)}? The new details will be saved and reflected across the system.`}
+        message={
+          editEmail.trim().toLowerCase() !== emp.email.toLowerCase()
+            ? `You are changing ${fullName(emp)}'s login email to "${editEmail.trim()}". They will receive a notification and must use the temporary password you set to log in. Continue?`
+            : `Are you sure you want to update the profile for ${fullName(emp)}? The new details will be saved and reflected across the system.`
+        }
         confirmText="Save Changes"
         variant="primary"
       />

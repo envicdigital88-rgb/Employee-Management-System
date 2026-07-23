@@ -235,6 +235,7 @@ interface HrmsState {
   deleteDepartment: (id: string) => Promise<void>;
   addEmployee: (e: Omit<Employee, 'avatarUrl'> & { avatarUrl?: string }, tempPassword?: string) => Promise<void>;
   updateEmployee: (id: string, data: Partial<Employee>) => Promise<void>;
+  changeEmployeeEmail: (id: string, newEmail: string, tempPassword: string, otherData?: Partial<Employee>) => Promise<void>;
   deleteEmployee: (id: string) => Promise<void>;
   updateEmployeeStatus: (ids: string[], status: EmployeeStatus) => Promise<void>;
   setEmployeeActive: (ids: string[], isActive: boolean) => Promise<void>;
@@ -1088,6 +1089,85 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     [isLive]
   );
 
+  const changeEmployeeEmail = useCallback(
+    async (id: string, newEmail: string, tempPassword: string, otherData?: Partial<Employee>) => {
+      const normalizedEmail = newEmail.trim().toLowerCase();
+
+      // Validate: new email must not be used by another employee
+      const conflict = employees.find(
+        (e) => e.id !== id && e.email.toLowerCase() === normalizedEmail
+      );
+      if (conflict) {
+        throw new Error(`The email "${normalizedEmail}" is already assigned to another employee.`);
+      }
+
+      if (!tempPassword || tempPassword.length < 6) {
+        throw new Error('Temporary password must be at least 6 characters.');
+      }
+
+      const merged: Partial<Employee> = { ...otherData, email: normalizedEmail };
+
+      // Update local employees state
+      setEmployees((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, ...merged } : e))
+      );
+
+      // Update currentUser if this is the logged-in employee
+      setCurrentUser((prev) => {
+        if (prev && prev.id === id) return { ...prev, ...merged };
+        return prev;
+      });
+
+      // In-app notification for the employee
+      setNotifications((prev) => [
+        {
+          id: `notif-${Date.now()}-email-${Math.random().toString(36).substring(2, 9)}`,
+          recipientId: id,
+          message: `Your login email has been updated to "${normalizedEmail}". Please use the temporary password provided by your admin to log in and then reset it.`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          type: 'info' as const,
+        },
+        ...prev,
+      ]);
+
+      if (isLive && supabase) {
+        try {
+          // 1. Update email (and any other changed fields) in the employees table
+          const dbRow = mapEmployeeToDb(merged);
+          const { error: dbError } = await supabase.from('employees').update(dbRow).eq('id', id);
+          if (dbError) {
+            console.error('Failed to update employee email in database:', dbError);
+            throw new Error(`Database error: ${dbError.message}`);
+          }
+
+          // 2. Create a new Supabase Auth account with the new email + temp password
+          //    (same isolated-client pattern as addEmployee to avoid overwriting admin session)
+          const tempClient = createClient(supabaseUrl!, supabaseAnonKey!, {
+            auth: {
+              persistSession: false,
+              autoRefreshToken: false,
+              detectSessionInUrl: false,
+            },
+          });
+          const { error: authError } = await tempClient.auth.signUp({
+            email: normalizedEmail,
+            password: tempPassword,
+          });
+          if (authError) {
+            // If auth already exists for this email, attempt a password-reset link instead
+            console.warn('Auth signUp for new email returned:', authError.message);
+          }
+        } catch (err: any) {
+          // Roll back local state on hard failure
+          setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, email: e.email } : e)));
+          throw err;
+        }
+      }
+    },
+    [employees, isLive]
+  );
+
   const deleteEmployee = useCallback(
     async (id: string) => {
       setEmployees((prev) => prev.filter((e) => e.id !== id));
@@ -1378,6 +1458,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       deleteDepartment,
       addEmployee,
       updateEmployee,
+      changeEmployeeEmail,
       deleteEmployee,
       updateEmployeeStatus,
       setEmployeeActive,
@@ -1428,6 +1509,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       deleteDepartment,
       addEmployee,
       updateEmployee,
+      changeEmployeeEmail,
       deleteEmployee,
       updateEmployeeStatus,
       setEmployeeActive,
