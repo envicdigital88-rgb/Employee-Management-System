@@ -274,11 +274,23 @@ const HrmsCtx = createContext<HrmsState | null>(null);
 
 const avatar = (seed: string) =>
   `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(seed)}&backgroundColor=14171c,1a1d23,262a31&radius=50`;
-
 const isAccountActive = (employee: Employee) => employee.isActive !== false;
 
 export function HrmsProvider({ children }: { children: ReactNode }) {
-  const [employees, setEmployees] = useState<Employee[]>(seedEmployees);
+  const [employees, setEmployees] = useState<Employee[]>(() => {
+    const saved = localStorage.getItem('HRMS_LOCAL_EMPLOYEES');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return seedEmployees;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('HRMS_LOCAL_EMPLOYEES', JSON.stringify(employees));
+  }, [employees]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(seedLeave);
   const [candidates, setCandidates] = useState<Candidate[]>(seedCandidates);
   const [departments, setDepartments] = useState<Department[]>(seedDepartments);
