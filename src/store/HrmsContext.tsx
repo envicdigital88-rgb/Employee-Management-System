@@ -33,7 +33,7 @@ import { createClient } from '@supabase/supabase-js';
 // Seed Fallbacks
 import { employees as seedEmployees } from '../data/employees';
 import { departments as seedDepartments } from '../data/departments';
-import { leaveRequests as seedLeave, leaveBalances as seedLeaveBalances } from '../data/leave';
+import { leaveRequests as seedLeave, leaveBalances as seedLeaveBalances, getDefaultLeaveQuota } from '../data/leave';
 import { candidates as seedCandidates, positions as seedPositions, onboardingTasks as seedOnboarding } from '../data/recruitment';
 import { attendanceRecords as seedAttendance } from '../data/attendance';
 import { payrollRecords as seedPayroll } from '../data/payroll';
@@ -255,6 +255,7 @@ interface HrmsState {
   clockIn: () => Promise<void>;
   clockOut: () => Promise<void>;
   applyLeave: (l: Omit<LeaveRequest, 'id' | 'status' | 'requestedOn' | 'employeeId'>) => Promise<void>;
+  updateLeaveAllocation: (employeeId: string, allocations: Partial<Record<import('../types').LeaveType, number>>) => void;
 
   // Utility Lookups
   getEmployee: (id: string | null) => Employee | undefined;
@@ -351,6 +352,18 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem('HRMS_TEMP_PASSWORDS', JSON.stringify(tempPasswords));
   }, [tempPasswords]);
+
+  const [customAllocations, setCustomAllocations] = useState<Record<string, Record<string, number>>>(() => {
+    const saved = localStorage.getItem('HRMS_CUSTOM_LEAVE_ALLOCATIONS');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {};
+  });
+
+  useEffect(() => {
+    localStorage.setItem('HRMS_CUSTOM_LEAVE_ALLOCATIONS', JSON.stringify(customAllocations));
+  }, [customAllocations]);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
@@ -1132,9 +1145,31 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
 
   const updateEmployee = useCallback(
     async (id: string, data: Partial<Employee>) => {
+      const existingEmp = employees.find(e => e.id === id);
+
       setEmployees((prev) =>
         prev.map((e) => (e.id === id ? { ...e, ...data } : e))
       );
+
+      // If status transitioned from Probation to Permanent, automatically allocate full permanent leave quotas
+      if (data.status === 'Permanent' && existingEmp?.status === 'Probation') {
+        const permanentQuota = getDefaultLeaveQuota('Permanent');
+        setCustomAllocations((prev) => ({
+          ...prev,
+          [id]: permanentQuota,
+        }));
+        setNotifications((prev) => [
+          {
+            id: `notif-${Date.now()}-perm-${Math.random().toString(36).substring(2, 9)}`,
+            recipientId: id,
+            message: `Congratulations! Your status has been updated to Permanent. Your full leave allocations (Annual, Casual, Medical) are now unlocked!`,
+            createdAt: new Date().toISOString(),
+            read: false,
+            type: 'leave' as const,
+          },
+          ...prev,
+        ]);
+      }
 
       // If this is the currently logged-in user, update currentUser too
       setCurrentUser((prev) => {
@@ -1156,6 +1191,53 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
           }
         } catch (err) {
           console.error('Network error updating employee:', err);
+        }
+      }
+    },
+    [employees, isLive]
+  );
+
+  const updateEmployeeStatus = useCallback(
+    async (ids: string[], status: EmployeeStatus) => {
+      setEmployees((prev) =>
+        prev.map((e) => (ids.includes(e.id) ? { ...e, status } : e))
+      );
+
+      // If status changed to Permanent, unlock full leave allocations
+      if (status === 'Permanent') {
+        const permanentQuota = getDefaultLeaveQuota('Permanent');
+        setCustomAllocations((prev) => {
+          const updated = { ...prev };
+          ids.forEach((empId) => {
+            updated[empId] = permanentQuota;
+          });
+          return updated;
+        });
+
+        // Add notifications for unlocked leaves
+        const now = new Date().toISOString();
+        const newNotifs: Notification[] = ids.map((empId) => ({
+          id: `notif-${Date.now()}-perm-${empId}-${Math.random().toString(36).substring(2, 7)}`,
+          recipientId: empId,
+          message: `Congratulations! Your employment status is now Permanent. Full annual, casual, and medical leave accounts are now unlocked!`,
+          createdAt: now,
+          read: false,
+          type: 'leave' as const,
+        }));
+        setNotifications((prev) => [...newNotifs, ...prev]);
+      }
+
+      if (isLive && supabase) {
+        try {
+          const { error } = await supabase
+            .from('employees')
+            .update({ status })
+            .in('id', ids);
+          if (error) {
+            console.error('Failed to update employee status in database:', error);
+          }
+        } catch (err) {
+          console.error('Network error updating employee status:', err);
         }
       }
     },
@@ -1281,28 +1363,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     [isLive]
   );
 
-  const updateEmployeeStatus = useCallback(
-    async (ids: string[], status: EmployeeStatus) => {
-      setEmployees((prev) =>
-        prev.map((e) => (ids.includes(e.id) ? { ...e, status } : e))
-      );
 
-      if (isLive && supabase) {
-        try {
-          const { error } = await supabase
-            .from('employees')
-            .update({ status })
-            .in('id', ids);
-          if (error) {
-            console.error('Failed to update employee status in database:', error);
-          }
-        } catch (err) {
-          console.error('Network error updating employee status:', err);
-        }
-      }
-    },
-    [isLive]
-  );
 
   const setEmployeeActive = useCallback(
     async (ids: string[], isActive: boolean) => {
@@ -1467,30 +1528,72 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     [performanceReviews]
   );
 
+  const updateLeaveAllocation = useCallback(
+    (employeeId: string, allocations: Partial<Record<import('../types').LeaveType, number>>) => {
+      setCustomAllocations((prev) => ({
+        ...prev,
+        [employeeId]: {
+          ...(prev[employeeId] || {}),
+          ...allocations,
+        },
+      }));
+    },
+    []
+  );
+
   const getLeaveBalance = useCallback(
     (employeeId: string): LeaveBalance | undefined => {
-      const seedBal = seedLeaveBalances.find((b) => b.employeeId === employeeId);
+      const emp = employees.find((e) => e.id === employeeId);
+      const defaultQuota = getDefaultLeaveQuota(emp?.status);
+      const userCustomQuota = customAllocations[employeeId] || {};
+
       const approvedLeaves = leaveRequests.filter(
         (l) => l.employeeId === employeeId && l.status === 'Approved'
       );
 
-      const annualUsed = approvedLeaves
-        .filter((l) => l.type === 'Annual')
-        .reduce((sum, l) => sum + l.days, 0);
+      const leaveTypes: import('../types').LeaveType[] = [
+        'Annual',
+        'Casual',
+        'Medical',
+        'Sick',
+        'Half Day',
+        'Unpaid',
+        'Parental',
+        'Bereavement',
+      ];
 
-      const sickUsed = approvedLeaves
-        .filter((l) => l.type === 'Sick')
-        .reduce((sum, l) => sum + l.days, 0);
+      const allocationsObj: Record<string, { allocated: number; used: number; remaining: number }> = {};
+
+      leaveTypes.forEach((type) => {
+        const allocated =
+          userCustomQuota[type] !== undefined
+            ? Number(userCustomQuota[type])
+            : (defaultQuota[type] ?? (type === 'Annual' ? 14 : type === 'Casual' ? 7 : type === 'Medical' || type === 'Sick' ? 14 : 0));
+
+        const used = approvedLeaves
+          .filter((l) => l.type === type || (type === 'Medical' && l.type === 'Sick') || (type === 'Sick' && l.type === 'Medical'))
+          .reduce((sum, l) => sum + l.days, 0);
+
+        allocationsObj[type] = {
+          allocated,
+          used,
+          remaining: Math.max(0, Number((allocated - used).toFixed(1))),
+        };
+      });
+
+      const annualAlloc = allocationsObj['Annual'] || { allocated: 14, used: 0, remaining: 14 };
+      const sickAlloc = allocationsObj['Medical'] || allocationsObj['Sick'] || { allocated: 14, used: 0, remaining: 14 };
 
       return {
         employeeId,
-        annualTotal: seedBal?.annualTotal ?? 25,
-        annualUsed: Math.max(annualUsed, seedBal?.annualUsed ?? 0),
-        sickTotal: seedBal?.sickTotal ?? 12,
-        sickUsed: Math.max(sickUsed, seedBal?.sickUsed ?? 0)
+        allocations: allocationsObj as any,
+        annualTotal: annualAlloc.allocated,
+        annualUsed: annualAlloc.used,
+        sickTotal: sickAlloc.allocated,
+        sickUsed: sickAlloc.used,
       };
     },
-    [leaveRequests]
+    [employees, customAllocations, leaveRequests]
   );
 
   const addNotification = useCallback((recipientId: string, message: string, type: 'attendance' | 'leave' | 'info') => {
@@ -1562,6 +1665,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       clockIn,
       clockOut,
       applyLeave,
+      updateLeaveAllocation,
       getEmployee,
       getDepartment,
       getPayrollForEmployee,

@@ -57,11 +57,15 @@ export interface AttendanceRecord {
 }
 
 export type LeaveType =
-'Annual' |
-'Sick' |
-'Unpaid' |
-'Parental' |
-'Bereavement';
+  | 'Annual'
+  | 'Casual'
+  | 'Medical'
+  | 'Sick'
+  | 'Half Day'
+  | 'Unpaid'
+  | 'Parental'
+  | 'Bereavement';
+
 export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected';
 
 export interface LeaveRequest {
@@ -76,8 +80,15 @@ export interface LeaveRequest {
   requestedOn: string; // ISO date
 }
 
+export interface LeaveTypeBalance {
+  allocated: number;
+  used: number;
+  remaining: number;
+}
+
 export interface LeaveBalance {
   employeeId: string; // FK -> employees.id
+  allocations: Record<LeaveType, LeaveTypeBalance>;
   annualTotal: number;
   annualUsed: number;
   sickTotal: number;

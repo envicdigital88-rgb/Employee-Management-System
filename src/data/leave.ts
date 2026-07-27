@@ -114,14 +114,61 @@ export const leaveRequests: LeaveRequest[] = [
 }];
 
 
+// Default statutory leave quota allocation rules (e.g. Sri Lanka Labour Law standards)
+export const getDefaultLeaveQuota = (status?: string): Record<string, number> => {
+  if (status === 'Probation') {
+    // Under Sri Lanka labour standards, probation employees are entitled to 0.5 (half day) casual leave per month
+    return {
+      'Half Day': 0.5,
+      'Casual': 0.5,
+      'Medical': 0,
+      'Sick': 0,
+      'Annual': 0,
+      'Parental': 0,
+      'Bereavement': 0,
+      'Unpaid': 30,
+    };
+  }
+  
+  // Permanent employees standard quota allocation
+  return {
+    'Annual': 14,
+    'Casual': 7,
+    'Medical': 14,
+    'Sick': 14,
+    'Half Day': 4,
+    'Parental': 60,
+    'Bereavement': 3,
+    'Unpaid': 30,
+  };
+};
+
 // Deterministic balance per employee.
-export const leaveBalances: LeaveBalance[] = employees.map((e, i) => ({
-  employeeId: e.id,
-  annualTotal: 25,
-  annualUsed: i * 3 % 18,
-  sickTotal: 12,
-  sickUsed: i * 2 % 9
-}));
+export const leaveBalances: LeaveBalance[] = employees.map((e, i) => {
+  const defaultAlloc = getDefaultLeaveQuota(e.status);
+  const annualTotal = defaultAlloc['Annual'];
+  const sickTotal = defaultAlloc['Medical'];
+  const annualUsed = i * 3 % 14;
+  const sickUsed = i * 2 % 7;
+
+  return {
+    employeeId: e.id,
+    allocations: {
+      'Annual': { allocated: annualTotal, used: annualUsed, remaining: Math.max(0, annualTotal - annualUsed) },
+      'Casual': { allocated: defaultAlloc['Casual'], used: 1, remaining: Math.max(0, defaultAlloc['Casual'] - 1) },
+      'Medical': { allocated: sickTotal, used: sickUsed, remaining: Math.max(0, sickTotal - sickUsed) },
+      'Sick': { allocated: sickTotal, used: sickUsed, remaining: Math.max(0, sickTotal - sickUsed) },
+      'Half Day': { allocated: defaultAlloc['Half Day'], used: 0, remaining: defaultAlloc['Half Day'] },
+      'Parental': { allocated: defaultAlloc['Parental'], used: 0, remaining: defaultAlloc['Parental'] },
+      'Bereavement': { allocated: defaultAlloc['Bereavement'], used: 0, remaining: defaultAlloc['Bereavement'] },
+      'Unpaid': { allocated: defaultAlloc['Unpaid'], used: 0, remaining: defaultAlloc['Unpaid'] },
+    },
+    annualTotal,
+    annualUsed,
+    sickTotal,
+    sickUsed,
+  };
+});
 
 export const getLeaveBalance = (employeeId: string): LeaveBalance | undefined =>
-leaveBalances.find((b) => b.employeeId === employeeId);
+  leaveBalances.find((b) => b.employeeId === employeeId);
