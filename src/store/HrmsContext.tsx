@@ -18,6 +18,7 @@ import {
   EmployeeStatus,
   Department,
   AttendanceRecord,
+  AttendanceStatus,
   PayrollRecord,
   PerformanceReview,
   Position,
@@ -33,7 +34,7 @@ import { createClient } from '@supabase/supabase-js';
 // Seed Fallbacks
 import { employees as seedEmployees } from '../data/employees';
 import { departments as seedDepartments } from '../data/departments';
-import { leaveRequests as seedLeave, leaveBalances as seedLeaveBalances, getDefaultLeaveQuota } from '../data/leave';
+import { leaveRequests as seedLeave, getDefaultLeaveQuota } from '../data/leave';
 import { candidates as seedCandidates, positions as seedPositions, onboardingTasks as seedOnboarding } from '../data/recruitment';
 import { attendanceRecords as seedAttendance } from '../data/attendance';
 import { payrollRecords as seedPayroll } from '../data/payroll';
@@ -1609,7 +1610,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
   const getLeaveBalance = useCallback(
     (employeeId: string): LeaveBalance | undefined => {
       const emp = employees.find((e) => e.id === employeeId);
-      const defaultQuota = getDefaultLeaveQuota(emp?.status);
+      const defaultQuota = getDefaultLeaveQuota(emp?.status, emp?.joinDate);
       const userCustomQuota = customAllocations[employeeId] || {};
 
       const approvedLeaves = leaveRequests.filter(

@@ -6,7 +6,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { KpiCard } from '../components/dashboard/KpiCard';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
-import { CalendarIcon, PlaneIcon, CheckIcon, XIcon, ClockIcon, InfoIcon, ShieldCheckIcon } from 'lucide-react';
+import { CalendarIcon, PlaneIcon, CheckIcon, XIcon, ShieldCheckIcon } from 'lucide-react';
 import { leaveStatusTone } from '../components/ui/statusMaps';
 import { LeaveType } from '../types';
 import { showToast } from '../components/ui/Toast';
@@ -152,7 +152,7 @@ export function MyLeavesPage() {
           <div>
             <p className="font-semibold text-amber-200">Probationary Status — Half Day Leave Entitlement</p>
             <p className="mt-0.5 text-amber-300/90 leading-relaxed">
-              Under Sri Lanka Labour Standards, employees on probation receive <strong>1 Half Day (0.5 Days)</strong> casual leave per month. Full annual (14d), casual (7d), and medical (14d) leave allocations will be <strong>automatically unlocked</strong> as soon as your status transitions to Permanent.
+              Under Sri Lanka Labour Standards, employees on probation earn <strong>1 Half Day (0.5 Days)</strong> casual leave per month. Unused leave automatically rolls over and accumulates into subsequent months. Full annual (14d), casual (7d), and medical (14d) leave allocations will be <strong>automatically unlocked</strong> as soon as your status transitions to Permanent.
             </p>
           </div>
         </div>
@@ -211,7 +211,7 @@ export function MyLeavesPage() {
             { type: 'Medical', label: 'Medical / Sick Leave', tone: 'sky' },
             { type: 'Half Day', label: 'Half Day Leave', tone: 'amber' },
           ].map(({ type, label }) => {
-            const data = allocs?.[type] || { allocated: 0, used: 0, remaining: 0 };
+            const data = (allocs as Record<string, any>)?.[type] || { allocated: 0, used: 0, remaining: 0 };
             const pct = data.allocated > 0 ? Math.min(100, Math.round((data.used / data.allocated) * 100)) : 0;
 
             return (

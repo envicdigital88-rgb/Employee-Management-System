@@ -118,7 +118,7 @@ export function LeavePage() {
         currentAllocations[type] = balance.allocations[type as LeaveType]?.allocated ?? 0;
       });
     } else {
-      const defaultQuota = getDefaultLeaveQuota(emp.status);
+      const defaultQuota = getDefaultLeaveQuota(emp.status, emp.joinDate);
       Object.assign(currentAllocations, defaultQuota);
     }
     
@@ -406,7 +406,7 @@ export function LeavePage() {
               <span className="text-xs font-medium text-content-muted">Apply Standard Preset:</span>
               <div className="flex items-center gap-2">
                 <Button 
-                  variant="outline" 
+                  variant="secondary" 
                   size="sm" 
                   onClick={() => handleApplyPreset('probation')}
                   className="h-7 text-xs"
@@ -414,7 +414,7 @@ export function LeavePage() {
                   Probation (0.5 Half Day)
                 </Button>
                 <Button 
-                  variant="outline" 
+                  variant="secondary" 
                   size="sm" 
                   onClick={() => handleApplyPreset('permanent')}
                   className="h-7 text-xs"

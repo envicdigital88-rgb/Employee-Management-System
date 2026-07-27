@@ -182,7 +182,7 @@ export function EmployeeDashboard() {
 
             <div className="flex gap-2.5">
               {!todayRecord ? (
-                <Button variant="primary" onClick={clockIn} className="flex items-center gap-2">
+                <Button variant="primary" onClick={() => clockIn()} className="flex items-center gap-2">
                   <PlayIcon className="h-4 w-4 fill-current" />
                   Clock In
                 </Button>

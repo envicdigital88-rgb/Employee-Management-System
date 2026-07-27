@@ -114,13 +114,28 @@ export const leaveRequests: LeaveRequest[] = [
 }];
 
 
+// Helper to compute months elapsed for probation leave accumulation (0.5 days / month)
+export const getProbationMonthsElapsed = (joinDate?: string): number => {
+  if (!joinDate) return 1;
+  const join = new Date(joinDate);
+  if (isNaN(join.getTime())) return 1;
+  const now = new Date();
+  const yearDiff = now.getFullYear() - join.getFullYear();
+  const monthDiff = now.getMonth() - join.getMonth();
+  const totalMonths = yearDiff * 12 + monthDiff + 1;
+  return Math.max(1, totalMonths);
+};
+
 // Default statutory leave quota allocation rules (e.g. Sri Lanka Labour Law standards)
-export const getDefaultLeaveQuota = (status?: string): Record<string, number> => {
+export const getDefaultLeaveQuota = (status?: string, joinDate?: string): Record<string, number> => {
   if (status === 'Probation') {
-    // Under Sri Lanka labour standards, probation employees are entitled to 0.5 (half day) casual leave per month
+    // Under Sri Lanka labour standards, probation employees earn 0.5 (half day) leave per month.
+    // Unused half days roll over and accumulate each month.
+    const months = getProbationMonthsElapsed(joinDate);
+    const accumulatedDays = Math.round(months * 0.5 * 10) / 10;
     return {
-      'Half Day': 0.5,
-      'Casual': 0.5,
+      'Half Day': accumulatedDays,
+      'Casual': 0,
       'Medical': 0,
       'Sick': 0,
       'Annual': 0,
@@ -145,17 +160,18 @@ export const getDefaultLeaveQuota = (status?: string): Record<string, number> =>
 
 // Deterministic balance per employee.
 export const leaveBalances: LeaveBalance[] = employees.map((e, i) => {
-  const defaultAlloc = getDefaultLeaveQuota(e.status);
+  const defaultAlloc = getDefaultLeaveQuota(e.status, e.joinDate);
   const annualTotal = defaultAlloc['Annual'];
   const sickTotal = defaultAlloc['Medical'];
-  const annualUsed = i * 3 % 14;
-  const sickUsed = i * 2 % 7;
+  const annualUsed = e.status === 'Probation' ? 0 : (i * 3 % 14);
+  const sickUsed = e.status === 'Probation' ? 0 : (i * 2 % 7);
+  const casualUsed = e.status === 'Probation' ? 0 : 1;
 
   return {
     employeeId: e.id,
     allocations: {
       'Annual': { allocated: annualTotal, used: annualUsed, remaining: Math.max(0, annualTotal - annualUsed) },
-      'Casual': { allocated: defaultAlloc['Casual'], used: 1, remaining: Math.max(0, defaultAlloc['Casual'] - 1) },
+      'Casual': { allocated: defaultAlloc['Casual'], used: casualUsed, remaining: Math.max(0, defaultAlloc['Casual'] - casualUsed) },
       'Medical': { allocated: sickTotal, used: sickUsed, remaining: Math.max(0, sickTotal - sickUsed) },
       'Sick': { allocated: sickTotal, used: sickUsed, remaining: Math.max(0, sickTotal - sickUsed) },
       'Half Day': { allocated: defaultAlloc['Half Day'], used: 0, remaining: defaultAlloc['Half Day'] },
