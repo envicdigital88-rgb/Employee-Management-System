@@ -43,11 +43,13 @@ export function MyAttendancePage() {
         <Card className="p-6 border border-line flex flex-col justify-between items-center text-center min-h-[300px]">
           <div className="space-y-2">
             <div className="mx-auto rounded-full bg-accent/10 p-4 w-16 h-16 flex items-center justify-center text-accent">
-              <ClockIcon className="h-8 w-8" />
+              {todayRecord?.status === 'WFH' ? <HomeIcon className="h-8 w-8 text-sky-400" /> : <ClockIcon className="h-8 w-8" />}
             </div>
             <h3 className="text-lg font-bold text-content mt-4">Work Shift Control</h3>
             <p className="text-xs text-content-muted">
-              Clock in when starting your shift and clock out when leaving.
+              {todayRecord?.status === 'WFH'
+                ? 'You are working from home today. Clock out when done.'
+                : 'Select your work mode and clock in to start your shift.'}
             </p>
           </div>
 
@@ -86,16 +88,18 @@ export function MyAttendancePage() {
               <p className="text-[10px] text-content-faint uppercase tracking-wider font-semibold">Today's Status</p>
               {todayRecord ? (
                 <div className="space-y-1">
-                  <Badge tone={todayRecord.status === 'WFH' ? 'sky' : todayRecord.status === 'Late' ? 'amber' : 'green'}>
-                    {todayRecord.status === 'WFH' ? '🏠 Work From Home (WFH)' : todayRecord.status}
-                  </Badge>
+                  {todayRecord.status === 'WFH' ? (
+                    <Badge tone="sky">🏠 Work From Home (WFH)</Badge>
+                  ) : (
+                    <Badge tone={todayRecord.status === 'Late' ? 'amber' : 'green'}>{todayRecord.status}</Badge>
+                  )}
                   <p className="text-xs text-content font-medium">
                     Shift: {todayRecord.clockIn} to {todayRecord.clockOut || '--:--'}
                   </p>
                 </div>
               ) : (
                 <p className="text-xs text-amber-400 font-semibold animate-pulse">
-                  Not Clocked In Yet ({workLocation === 'wfh' ? 'WFH' : 'Office'})
+                  Not Clocked In Yet ({workLocation === 'wfh' ? '🏠 WFH Mode' : '🏢 Office'})
                 </p>
               )}
             </div>

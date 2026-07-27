@@ -254,6 +254,7 @@ interface HrmsState {
   // Attendance Clock-in Operations
   clockIn: (isWfh?: boolean) => Promise<void>;
   clockOut: () => Promise<void>;
+  markAdminWFH: (employeeId: string, date: string) => Promise<void>;
   applyLeave: (l: Omit<LeaveRequest, 'id' | 'status' | 'requestedOn' | 'employeeId'>) => Promise<void>;
   updateLeaveAllocation: (employeeId: string, allocations: Partial<Record<import('../types').LeaveType, number>>) => void;
 
@@ -890,6 +891,64 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       ...prev
     ]);
   }, [currentUser, attendanceRecords, isLive]);
+
+  // Admin: manually mark an employee's attendance as WFH for a given date
+  const markAdminWFH = useCallback(async (employeeId: string, date: string) => {
+    const existingRecord = attendanceRecords.find(r => r.employeeId === employeeId && r.date === date);
+    if (existingRecord) {
+      // Update existing record's status to WFH
+      const updatedRecord = { ...existingRecord, status: 'WFH' as AttendanceStatus };
+      setAttendanceRecords(prev => prev.map(r => r.id === existingRecord.id ? updatedRecord : r));
+      if (isLive && supabase) {
+        try {
+          const { error } = await supabase.from('attendance_records').update({ status: 'WFH' }).eq('id', existingRecord.id);
+          if (error) console.error('Failed to update WFH in database:', error);
+        } catch (err) {
+          console.error('Network error marking WFH:', err);
+        }
+      }
+    } else {
+      // Create new WFH record for that day
+      const newRecord: AttendanceRecord = {
+        id: `ATT-WFH-${Date.now()}`,
+        employeeId,
+        date,
+        status: 'WFH' as AttendanceStatus,
+        clockIn: '09:00',
+        clockOut: null,
+        hours: 0
+      };
+      setAttendanceRecords(prev => [newRecord, ...prev]);
+      if (isLive && supabase) {
+        try {
+          const { error } = await supabase.from('attendance_records').insert({
+            id: newRecord.id,
+            employee_id: employeeId,
+            date,
+            status: 'WFH',
+            clock_in: '09:00',
+            clock_out: null,
+            hours: 0
+          });
+          if (error) console.error('Failed to save WFH record in database:', error);
+        } catch (err) {
+          console.error('Network error saving WFH:', err);
+        }
+      }
+    }
+    // Notify employee
+    setNotifications(prev => [
+      {
+        id: `notif-${Date.now()}-wfh-${Math.random().toString(36).substring(2,9)}`,
+        recipientId: employeeId,
+        message: `Your attendance for ${date} has been marked as Work From Home (WFH) by the admin.`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        type: 'attendance'
+      },
+      ...prev
+    ]);
+  }, [attendanceRecords, isLive]);
 
   const applyLeave = useCallback(async (data: Omit<LeaveRequest, 'id' | 'status' | 'requestedOn' | 'employeeId'>) => {
     if (!currentUser) return;
@@ -1670,6 +1729,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       updateProfile,
       clockIn,
       clockOut,
+      markAdminWFH,
       applyLeave,
       updateLeaveAllocation,
       getEmployee,
@@ -1722,6 +1782,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       updateProfile,
       clockIn,
       clockOut,
+      markAdminWFH,
       applyLeave,
       getEmployee,
       getDepartment,
