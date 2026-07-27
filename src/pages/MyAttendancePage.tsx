@@ -5,18 +5,21 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
-import { ClockIcon, PlayIcon, LogOutIcon, HomeIcon, Building2Icon } from 'lucide-react';
+import { ClockIcon, PlayIcon, LogOutIcon, HomeIcon, Building2Icon, CoffeeIcon } from 'lucide-react';
 import { attendanceTone } from '../components/ui/statusMaps';
 import { todayISO } from '../data/attendance';
 import { showToast } from '../components/ui/Toast';
 
 export function MyAttendancePage() {
-  const { currentUser, attendanceRecords, clockIn, clockOut } = useHrms();
+  const { currentUser, attendanceRecords, clockIn, clockOut, startBreak, endBreak, getDepartment } = useHrms();
   const [workLocation, setWorkLocation] = useState<'office' | 'wfh'>('office');
   const [confirmClockIn, setConfirmClockIn] = useState(false);
   const [confirmClockOut, setConfirmClockOut] = useState(false);
 
   if (!currentUser) return null;
+
+  const userDept = getDepartment(currentUser.departmentId);
+  const isBDDepartment = currentUser.departmentId === 'DEP-BD' || userDept?.name.toLowerCase() === 'business development';
 
   // Filter logs for this employee
   const myAttendance = useMemo(() => 
@@ -105,17 +108,29 @@ export function MyAttendancePage() {
             </div>
           </div>
 
-          <div className="w-full flex gap-3">
+          <div className="w-full flex gap-2">
             {!todayRecord ? (
               <Button variant="primary" className="w-full flex items-center justify-center gap-2 h-11" onClick={() => setConfirmClockIn(true)}>
                 <PlayIcon className="h-4 w-4 fill-current" />
                 Clock In ({workLocation === 'wfh' ? 'Work From Home' : 'Office Shift'})
               </Button>
             ) : !todayRecord.clockOut ? (
-              <Button variant="secondary" className="w-full flex items-center justify-center gap-2 h-11 border border-rose-500/20 text-rose-400 bg-rose-500/5 hover:bg-rose-500/10" onClick={() => setConfirmClockOut(true)}>
-                <LogOutIcon className="h-4 w-4" />
-                Clock Out Shift
-              </Button>
+              <>
+                {isBDDepartment && (
+                  todayRecord.breaks?.some((b) => !b.endTime) ? (
+                    <Button variant="secondary" className="flex-1 flex items-center justify-center gap-1.5 h-11 border border-amber-500/30 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20" onClick={endBreak}>
+                      <CoffeeIcon className="h-4 w-4" /> End Break
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" className="flex-1 flex items-center justify-center gap-1.5 h-11 border border-amber-500/20 text-amber-300 bg-amber-500/5 hover:bg-amber-500/15" onClick={startBreak}>
+                      <CoffeeIcon className="h-4 w-4" /> Start Break
+                    </Button>
+                  )
+                )}
+                <Button variant="secondary" className="flex-1 flex items-center justify-center gap-2 h-11 border border-rose-500/20 text-rose-400 bg-rose-500/5 hover:bg-rose-500/10" onClick={() => setConfirmClockOut(true)}>
+                  <LogOutIcon className="h-4 w-4" /> Clock Out
+                </Button>
+              </>
             ) : (
               <Button variant="secondary" className="w-full h-11" disabled>
                 Shift Completed
@@ -139,13 +154,14 @@ export function MyAttendancePage() {
                   <th className="px-5 py-3">Status / Mode</th>
                   <th className="px-5 py-3">Clock In</th>
                   <th className="px-5 py-3">Clock Out</th>
+                  {isBDDepartment && <th className="px-5 py-3">Breaks Log</th>}
                   <th className="px-5 py-3 text-right">Hours Worked</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {myAttendance.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-5 py-8 text-center text-xs text-content-faint">
+                    <td colSpan={isBDDepartment ? 6 : 5} className="px-5 py-8 text-center text-xs text-content-faint">
                       No shift records logged yet.
                     </td>
                   </tr>
@@ -167,6 +183,21 @@ export function MyAttendancePage() {
                       </td>
                       <td className="px-5 py-3 text-xs text-content font-medium">{a.clockIn || '--:--'}</td>
                       <td className="px-5 py-3 text-xs text-content font-medium">{a.clockOut || '--:--'}</td>
+                      {isBDDepartment && (
+                        <td className="px-5 py-3 text-xs text-content-muted font-medium">
+                          {a.breaks && a.breaks.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {a.breaks.map((b, idx) => (
+                                <span key={b.id || idx} className="bg-surface-raised px-2 py-0.5 rounded border border-line text-[11px] text-amber-300 font-mono">
+                                  ☕ {b.startTime} - {b.endTime || 'Ongoing'} {b.durationMinutes ? `(${b.durationMinutes}m)` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-content-faint">—</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-5 py-3 text-xs text-content text-right font-bold">
                         {a.hours > 0 ? `${a.hours} hrs` : '--'}
                       </td>

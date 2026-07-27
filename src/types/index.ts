@@ -46,6 +46,13 @@ export type AttendanceStatus =
 'WFH' |
 'On Leave';
 
+export interface BreakRecord {
+  id: string;
+  startTime: string;
+  endTime: string | null;
+  durationMinutes?: number;
+}
+
 export interface AttendanceRecord {
   id: string; // PK
   employeeId: string; // FK -> employees.id
@@ -54,6 +61,7 @@ export interface AttendanceRecord {
   clockIn: string | null; // "09:04"
   clockOut: string | null; // "18:12"
   hours: number;
+  breaks?: BreakRecord[];
 }
 
 export type LeaveType =

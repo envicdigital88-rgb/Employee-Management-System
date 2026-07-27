@@ -6,7 +6,8 @@ import {
   TargetIcon, 
   CheckCircle2Icon, 
   PlayIcon, 
-  ArrowRightIcon 
+  ArrowRightIcon,
+  CoffeeIcon 
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useHrms } from '../../store/HrmsContext';
@@ -25,11 +26,10 @@ import {
   Cell 
 } from 'recharts';
 import { 
-  chartColors, 
   tooltipStyle, 
   axisProps 
 } from '../charts/chartTheme';
-import { currency, compactCurrency } from '../../lib/format';
+import { currency } from '../../lib/format';
 import { todayISO } from '../../data/attendance';
 
 export function EmployeeDashboard() {
@@ -41,7 +41,10 @@ export function EmployeeDashboard() {
     getReviewsForEmployee, 
     leaveRequests,
     clockIn,
-    clockOut
+    clockOut,
+    startBreak,
+    endBreak,
+    getDepartment
   } = useHrms();
 
   if (!currentUser) return null;
@@ -110,6 +113,10 @@ export function EmployeeDashboard() {
     }));
   }, [myAttendance]);
 
+  const userDept = getDepartment(currentUser.departmentId);
+  const isBDDepartment = currentUser.departmentId === 'DEP-BD' || userDept?.name.toLowerCase() === 'business development';
+  const activeBreak = todayRecord?.breaks?.find((b) => !b.endTime);
+
   return (
     <div className="space-y-6">
       {/* Welcome banner */}
@@ -164,14 +171,33 @@ export function EmployeeDashboard() {
                 <ClockIcon className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs text-content-faint">Today's Attendance Status</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-content-faint">Today's Attendance Status</p>
+                  {isBDDepartment && activeBreak && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400 animate-pulse bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                      ☕ On Break ({activeBreak.startTime})
+                    </span>
+                  )}
+                </div>
                 {todayRecord ? (
-                  <p className="text-sm font-semibold text-content mt-0.5">
-                    Clocked In: <span className="text-accent">{todayRecord.clockIn}</span>
-                    {todayRecord.clockOut && (
-                      <> · Clocked Out: <span className="text-content-muted">{todayRecord.clockOut}</span></>
+                  <div>
+                    <p className="text-sm font-semibold text-content mt-0.5">
+                      Clocked In: <span className="text-accent">{todayRecord.clockIn}</span>
+                      {todayRecord.clockOut && (
+                        <> · Clocked Out: <span className="text-content-muted">{todayRecord.clockOut}</span></>
+                      )}
+                    </p>
+                    {isBDDepartment && todayRecord.breaks && todayRecord.breaks.length > 0 && (
+                      <div className="mt-1 text-xs text-content-muted flex items-center gap-1.5 flex-wrap">
+                        <span className="font-medium text-amber-400/90">Breaks logged:</span>
+                        {todayRecord.breaks.map((b, idx) => (
+                          <span key={b.id || idx} className="bg-surface-raised px-2 py-0.5 rounded border border-line text-[11px]">
+                            {b.startTime} - {b.endTime || 'Ongoing'} {b.durationMinutes ? `(${b.durationMinutes}m)` : ''}
+                          </span>
+                        ))}
+                      </div>
                     )}
-                  </p>
+                  </div>
                 ) : (
                   <p className="text-sm font-semibold text-amber-400 mt-0.5 animate-pulse">
                     You have not clocked in today.
@@ -180,7 +206,21 @@ export function EmployeeDashboard() {
               </div>
             </div>
 
-            <div className="flex gap-2.5">
+            <div className="flex items-center gap-2.5">
+              {isBDDepartment && todayRecord && !todayRecord.clockOut && (
+                activeBreak ? (
+                  <Button variant="secondary" onClick={endBreak} className="flex items-center gap-1.5 border border-amber-500/30 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20">
+                    <CoffeeIcon className="h-4 w-4" />
+                    End Break
+                  </Button>
+                ) : (
+                  <Button variant="secondary" onClick={startBreak} className="flex items-center gap-1.5 text-amber-300 bg-amber-500/5 hover:bg-amber-500/15 border border-amber-500/20">
+                    <CoffeeIcon className="h-4 w-4" />
+                    Start Break
+                  </Button>
+                )
+              )}
+
               {!todayRecord ? (
                 <Button variant="primary" onClick={() => clockIn()} className="flex items-center gap-2">
                   <PlayIcon className="h-4 w-4 fill-current" />

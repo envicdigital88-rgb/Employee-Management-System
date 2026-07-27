@@ -47,6 +47,23 @@ export const attendanceRecords: AttendanceRecord[] = (() => {
         clockOut = `${pad(outHour)}:${pad(seed * 7 % 60)}`;
         hours = Math.max(6, Math.min(9, outHour - inHour + 1));
       }
+      let breaks = undefined;
+      if (emp.departmentId === 'DEP-BD' && (status === 'Present' || status === 'WFH' || status === 'Late')) {
+        breaks = [
+          {
+            id: `BRK-${counter}-1`,
+            startTime: '11:15',
+            endTime: '11:30',
+            durationMinutes: 15
+          },
+          {
+            id: `BRK-${counter}-2`,
+            startTime: '14:45',
+            endTime: '15:00',
+            durationMinutes: 15
+          }
+        ];
+      }
       records.push({
         id: `ATT-${counter++}`,
         employeeId: emp.id,
@@ -54,7 +71,8 @@ export const attendanceRecords: AttendanceRecord[] = (() => {
         status,
         clockIn,
         clockOut,
-        hours
+        hours,
+        breaks
       });
     });
   }

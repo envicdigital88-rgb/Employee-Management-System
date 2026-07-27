@@ -19,6 +19,7 @@ import {
   Department,
   AttendanceRecord,
   AttendanceStatus,
+  BreakRecord,
   PayrollRecord,
   PerformanceReview,
   Position,
@@ -113,12 +114,39 @@ const mapEmployeeToDb = (e: Partial<Employee>): any => {
   if (e.gender !== undefined) res.gender = e.gender;
   if (e.dateOfBirth !== undefined) res.date_of_birth = e.dateOfBirth;
   if (e.address !== undefined) res.address = e.address;
-  if (e.nic !== undefined) res.nic = e.nic;
+  if (e.nic !== undefined && e.nic !== '') res.nic = e.nic;
   if (e.isActive !== undefined) res.is_active = e.isActive;
   if (e.isAdmin !== undefined) res.is_admin = e.isAdmin;
   if (e.shift !== undefined) res.shift = e.shift;
   if (e.endDate) res.end_date = e.endDate;
   return res;
+};
+
+const safeEmployeeDbQuery = async (
+  operation: 'insert' | 'update',
+  dbRow: any,
+  eqId?: string
+): Promise<{ error: any }> => {
+  if (!supabase) return { error: null };
+  const rowCopy = { ...dbRow };
+
+  let result = operation === 'insert'
+    ? await supabase.from('employees').insert(rowCopy)
+    : await supabase.from('employees').update(rowCopy).eq('id', eqId!);
+
+  if (result.error) {
+    const errMsg = (result.error.message || '').toLowerCase();
+    if (errMsg.includes('nic') || errMsg.includes('end_date') || errMsg.includes('column')) {
+      if (errMsg.includes('nic')) delete rowCopy.nic;
+      if (errMsg.includes('end_date')) delete rowCopy.end_date;
+
+      result = operation === 'insert'
+        ? await supabase.from('employees').insert(rowCopy)
+        : await supabase.from('employees').update(rowCopy).eq('id', eqId!);
+    }
+  }
+
+  return result;
 };
 
 const mapPositionFromDb = (p: any): Position => ({
@@ -255,6 +283,8 @@ interface HrmsState {
   // Attendance Clock-in Operations
   clockIn: (isWfh?: boolean) => Promise<void>;
   clockOut: () => Promise<void>;
+  startBreak: () => Promise<void>;
+  endBreak: () => Promise<void>;
   markAdminWFH: (employeeId: string, date: string) => Promise<void>;
   applyLeave: (l: Omit<LeaveRequest, 'id' | 'status' | 'requestedOn' | 'employeeId'>) => Promise<void>;
   updateLeaveAllocation: (employeeId: string, allocations: Partial<Record<import('../types').LeaveType, number>>) => void;
@@ -752,7 +782,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     if (isLive && supabase) {
       try {
         const dbRow = mapEmployeeToDb(filteredData);
-        const { error } = await supabase.from('employees').update(dbRow).eq('id', currentUser.id);
+        const { error } = await safeEmployeeDbQuery('update', dbRow, currentUser.id);
         if (error) console.error('Failed to save profile in database:', error);
       } catch (err) {
         console.error('Network error updating profile:', err);
@@ -851,10 +881,27 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       hours = Math.max(0.1, Number((((outH * 60 + outM) - (inH * 60 + inM)) / 60).toFixed(2)));
     }
 
+    let breaksList = todayRecord.breaks || [];
+    const activeBreakIndex = breaksList.findIndex(b => !b.endTime);
+    if (activeBreakIndex !== -1) {
+      const activeBreak = breaksList[activeBreakIndex];
+      const [startH, startM] = activeBreak.startTime.split(':').map(Number);
+      const endH = today.getHours();
+      const endM = today.getMinutes();
+      const duration = Math.max(1, (endH * 60 + endM) - (startH * 60 + startM));
+      breaksList = [...breaksList];
+      breaksList[activeBreakIndex] = {
+        ...activeBreak,
+        endTime: timeStr,
+        durationMinutes: duration
+      };
+    }
+
     const updatedRecord = {
       ...todayRecord,
       clockOut: timeStr,
-      hours
+      hours,
+      breaks: breaksList
     };
 
     setAttendanceRecords(prev => prev.map(r => r.id === todayRecord.id ? updatedRecord : r));
@@ -892,6 +939,85 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       ...prev
     ]);
   }, [currentUser, attendanceRecords, isLive]);
+
+  const startBreak = useCallback(async () => {
+    if (!currentUser) return;
+
+    const dept = departments.find(d => d.id === currentUser.departmentId);
+    const isBD = currentUser.departmentId === 'DEP-BD' || dept?.name.toLowerCase() === 'business development';
+    if (!isBD) {
+      showToast('Break tracking is only available for Business Development department employees.', 'error');
+      return;
+    }
+
+    const today = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const isoDate = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    const timeStr = `${pad(today.getHours())}:${pad(today.getMinutes())}`;
+
+    const todayRecord = attendanceRecords.find(r => r.employeeId === currentUser.id && r.date === isoDate && r.clockIn && !r.clockOut);
+    if (!todayRecord) {
+      showToast('You must clock in first before starting a break.', 'error');
+      return;
+    }
+
+    const breaksList = todayRecord.breaks || [];
+    const activeBreak = breaksList.find(b => !b.endTime);
+    if (activeBreak) {
+      showToast('You are already on a break.', 'info');
+      return;
+    }
+
+    const newBreak: BreakRecord = {
+      id: `BRK-${Date.now()}`,
+      startTime: timeStr,
+      endTime: null
+    };
+
+    const updatedBreaks = [...breaksList, newBreak];
+    const updatedRecord = { ...todayRecord, breaks: updatedBreaks };
+
+    setAttendanceRecords(prev => prev.map(r => r.id === todayRecord.id ? updatedRecord : r));
+    showToast(`Break started at ${timeStr}`, 'success');
+  }, [currentUser, departments, attendanceRecords]);
+
+  const endBreak = useCallback(async () => {
+    if (!currentUser) return;
+
+    const today = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const isoDate = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    const timeStr = `${pad(today.getHours())}:${pad(today.getMinutes())}`;
+
+    const todayRecord = attendanceRecords.find(r => r.employeeId === currentUser.id && r.date === isoDate && r.clockIn && !r.clockOut);
+    if (!todayRecord) return;
+
+    const breaksList = todayRecord.breaks || [];
+    const activeBreakIndex = breaksList.findIndex(b => !b.endTime);
+    if (activeBreakIndex === -1) {
+      showToast('No active break found to end.', 'info');
+      return;
+    }
+
+    const activeBreak = breaksList[activeBreakIndex];
+    const [startH, startM] = activeBreak.startTime.split(':').map(Number);
+    const endH = today.getHours();
+    const endM = today.getMinutes();
+    const duration = Math.max(1, (endH * 60 + endM) - (startH * 60 + startM));
+
+    const updatedBreak: BreakRecord = {
+      ...activeBreak,
+      endTime: timeStr,
+      durationMinutes: duration
+    };
+
+    const updatedBreaks = [...breaksList];
+    updatedBreaks[activeBreakIndex] = updatedBreak;
+    const updatedRecord = { ...todayRecord, breaks: updatedBreaks };
+
+    setAttendanceRecords(prev => prev.map(r => r.id === todayRecord.id ? updatedRecord : r));
+    showToast(`Break ended at ${timeStr} (${duration} mins)`, 'success');
+  }, [currentUser, attendanceRecords]);
 
   // Admin: manually mark an employee's attendance as WFH for a given date
   const markAdminWFH = useCallback(async (employeeId: string, date: string) => {
@@ -1173,12 +1299,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       if (isLive && supabase) {
         try {
           const dbRow = mapEmployeeToDb(newEmp);
-          let { error: dbError } = await supabase.from('employees').insert(dbRow);
-          if (dbError && dbError.message?.toLowerCase().includes('end_date')) {
-            delete dbRow.end_date;
-            const retry = await supabase.from('employees').insert(dbRow);
-            dbError = retry.error;
-          }
+          let { error: dbError } = await safeEmployeeDbQuery('insert', dbRow);
           if (dbError) {
             console.error('Failed to insert employee in database:', dbError);
             throw new Error(`Database error: ${dbError.message}`);
@@ -1246,12 +1367,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       if (isLive && supabase) {
         try {
           const dbRow = mapEmployeeToDb(data);
-          let { error } = await supabase.from('employees').update(dbRow).eq('id', id);
-          if (error && error.message?.toLowerCase().includes('end_date')) {
-            delete dbRow.end_date;
-            const retry = await supabase.from('employees').update(dbRow).eq('id', id);
-            error = retry.error;
-          }
+          let { error } = await safeEmployeeDbQuery('update', dbRow, id);
           if (error) {
             console.error('Failed to update employee in database:', error);
           }
@@ -1366,12 +1482,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         try {
           // 1. Update email (and any other changed fields) in the employees table
           const dbRow = mapEmployeeToDb(merged);
-          let { error: dbError } = await supabase.from('employees').update(dbRow).eq('id', id);
-          if (dbError && dbError.message?.toLowerCase().includes('end_date')) {
-            delete dbRow.end_date;
-            const retry = await supabase.from('employees').update(dbRow).eq('id', id);
-            dbError = retry.error;
-          }
+          let { error: dbError } = await safeEmployeeDbQuery('update', dbRow, id);
           if (dbError) {
             console.error('Failed to update employee email in database:', dbError);
             throw new Error(`Database error: ${dbError.message}`);
@@ -1730,6 +1841,8 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       updateProfile,
       clockIn,
       clockOut,
+      startBreak,
+      endBreak,
       markAdminWFH,
       applyLeave,
       updateLeaveAllocation,
@@ -1783,6 +1896,8 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       updateProfile,
       clockIn,
       clockOut,
+      startBreak,
+      endBreak,
       markAdminWFH,
       applyLeave,
       getEmployee,

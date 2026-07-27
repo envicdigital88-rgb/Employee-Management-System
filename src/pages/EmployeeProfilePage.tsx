@@ -386,6 +386,7 @@ export function EmployeeProfilePage() {
                       <th className="px-5 py-3 font-medium">Status</th>
                       <th className="px-5 py-3 font-medium">Clock in</th>
                       <th className="px-5 py-3 font-medium">Clock out</th>
+                      <th className="px-5 py-3 font-medium">Breaks Log</th>
                       <th className="px-5 py-3 font-medium">Hours</th>
                     </tr>
                   </thead>
@@ -405,6 +406,19 @@ export function EmployeeProfilePage() {
                         </td>
                         <td className="px-5 py-3 text-content-muted">
                           {a.clockOut ?? '—'}
+                        </td>
+                        <td className="px-5 py-3 text-content-muted text-xs">
+                          {a.breaks && a.breaks.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {a.breaks.map((b, idx) => (
+                                <span key={b.id || idx} className="bg-surface-raised px-2 py-0.5 rounded border border-line text-[11px] text-amber-300 font-mono">
+                                  ☕ {b.startTime} - {b.endTime || 'Ongoing'} {b.durationMinutes ? `(${b.durationMinutes}m)` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-content-faint">—</span>
+                          )}
                         </td>
                         <td className="px-5 py-3 text-content-muted">
                           {a.hours || '—'}
