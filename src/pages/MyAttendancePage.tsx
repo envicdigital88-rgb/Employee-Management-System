@@ -5,13 +5,14 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
-import { ClockIcon, PlayIcon, LogOutIcon } from 'lucide-react';
+import { ClockIcon, PlayIcon, LogOutIcon, HomeIcon, Building2Icon } from 'lucide-react';
 import { attendanceTone } from '../components/ui/statusMaps';
 import { todayISO } from '../data/attendance';
 import { showToast } from '../components/ui/Toast';
 
 export function MyAttendancePage() {
   const { currentUser, attendanceRecords, clockIn, clockOut } = useHrms();
+  const [workLocation, setWorkLocation] = useState<'office' | 'wfh'>('office');
   const [confirmClockIn, setConfirmClockIn] = useState(false);
   const [confirmClockOut, setConfirmClockOut] = useState(false);
 
@@ -50,29 +51,61 @@ export function MyAttendancePage() {
             </p>
           </div>
 
-          <div className="py-4 space-y-1">
-            <p className="text-[10px] text-content-faint uppercase tracking-wider font-semibold">Today's Status</p>
-            {todayRecord ? (
+          <div className="py-2 w-full space-y-2">
+            {!todayRecord && (
               <div className="space-y-1">
-                <Badge tone={todayRecord.status === 'Late' ? 'amber' : 'green'}>
-                  {todayRecord.status}
-                </Badge>
-                <p className="text-xs text-content font-medium">
-                  Shift: {todayRecord.clockIn} to {todayRecord.clockOut || '--:--'}
-                </p>
+                <p className="text-[11px] font-semibold text-content-muted">Select Work Location / Mode:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWorkLocation('office')}
+                    className={`flex items-center justify-center gap-1.5 h-9 rounded-xl border text-xs font-semibold transition-colors ${
+                      workLocation === 'office'
+                        ? 'border-accent bg-accent/10 text-accent'
+                        : 'border-line bg-surface text-content-muted hover:text-content'
+                    }`}
+                  >
+                    <Building2Icon className="h-3.5 w-3.5" /> Office
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWorkLocation('wfh')}
+                    className={`flex items-center justify-center gap-1.5 h-9 rounded-xl border text-xs font-semibold transition-colors ${
+                      workLocation === 'wfh'
+                        ? 'border-sky-500 bg-sky-500/10 text-sky-400'
+                        : 'border-line bg-surface text-content-muted hover:text-content'
+                    }`}
+                  >
+                    <HomeIcon className="h-3.5 w-3.5" /> Work From Home
+                  </button>
+                </div>
               </div>
-            ) : (
-              <p className="text-xs text-amber-400 font-semibold animate-pulse">
-                Not Clocked In Yet
-              </p>
             )}
+
+            <div className="pt-2 space-y-1">
+              <p className="text-[10px] text-content-faint uppercase tracking-wider font-semibold">Today's Status</p>
+              {todayRecord ? (
+                <div className="space-y-1">
+                  <Badge tone={todayRecord.status === 'WFH' ? 'sky' : todayRecord.status === 'Late' ? 'amber' : 'green'}>
+                    {todayRecord.status === 'WFH' ? '🏠 Work From Home (WFH)' : todayRecord.status}
+                  </Badge>
+                  <p className="text-xs text-content font-medium">
+                    Shift: {todayRecord.clockIn} to {todayRecord.clockOut || '--:--'}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-amber-400 font-semibold animate-pulse">
+                  Not Clocked In Yet ({workLocation === 'wfh' ? 'WFH' : 'Office'})
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="w-full flex gap-3">
             {!todayRecord ? (
               <Button variant="primary" className="w-full flex items-center justify-center gap-2 h-11" onClick={() => setConfirmClockIn(true)}>
                 <PlayIcon className="h-4 w-4 fill-current" />
-                Clock In Shift
+                Clock In ({workLocation === 'wfh' ? 'Work From Home' : 'Office Shift'})
               </Button>
             ) : !todayRecord.clockOut ? (
               <Button variant="secondary" className="w-full flex items-center justify-center gap-2 h-11 border border-rose-500/20 text-rose-400 bg-rose-500/5 hover:bg-rose-500/10" onClick={() => setConfirmClockOut(true)}>
@@ -99,7 +132,7 @@ export function MyAttendancePage() {
               <thead>
                 <tr className="border-b border-line bg-surface-raised/40 text-xs font-semibold text-content-muted">
                   <th className="px-5 py-3">Date</th>
-                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Status / Mode</th>
                   <th className="px-5 py-3">Clock In</th>
                   <th className="px-5 py-3">Clock Out</th>
                   <th className="px-5 py-3 text-right">Hours Worked</th>
@@ -124,7 +157,9 @@ export function MyAttendancePage() {
                         })}
                       </td>
                       <td className="px-5 py-3">
-                        <Badge tone={attendanceTone[a.status]}>{a.status}</Badge>
+                        <Badge tone={a.status === 'WFH' ? 'sky' : attendanceTone[a.status]}>
+                          {a.status === 'WFH' ? '🏠 WFH' : a.status}
+                        </Badge>
                       </td>
                       <td className="px-5 py-3 text-xs text-content font-medium">{a.clockIn || '--:--'}</td>
                       <td className="px-5 py-3 text-xs text-content font-medium">{a.clockOut || '--:--'}</td>
@@ -144,11 +179,11 @@ export function MyAttendancePage() {
         open={confirmClockIn}
         onClose={() => setConfirmClockIn(false)}
         onConfirm={async () => {
-          await clockIn();
-          showToast('You have clocked in successfully!', 'success');
+          await clockIn(workLocation === 'wfh');
+          showToast(`You have clocked in for ${workLocation === 'wfh' ? 'Work From Home (WFH)' : 'Office Shift'}!`, 'success');
         }}
-        title="Clock In Shift"
-        message="Confirm that you are starting your work shift right now. Your clock-in time will be recorded."
+        title={`Clock In (${workLocation === 'wfh' ? 'Work From Home' : 'Office Shift'})`}
+        message={`Confirm that you are starting your work shift right now as ${workLocation === 'wfh' ? 'Work From Home (WFH)' : 'Office Shift'}. Your clock-in time will be recorded.`}
         confirmText="Clock In"
         variant="primary"
       />

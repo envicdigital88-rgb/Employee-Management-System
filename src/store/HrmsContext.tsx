@@ -252,7 +252,7 @@ interface HrmsState {
   updateProfile: (data: Partial<Employee>) => Promise<void>;
   
   // Attendance Clock-in Operations
-  clockIn: () => Promise<void>;
+  clockIn: (isWfh?: boolean) => Promise<void>;
   clockOut: () => Promise<void>;
   applyLeave: (l: Omit<LeaveRequest, 'id' | 'status' | 'requestedOn' | 'employeeId'>) => Promise<void>;
   updateLeaveAllocation: (employeeId: string, allocations: Partial<Record<import('../types').LeaveType, number>>) => void;
@@ -759,7 +759,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
   }, [currentUser, isLive]);
 
   // Clock-in attendance
-  const clockIn = useCallback(async () => {
+  const clockIn = useCallback(async (isWfh?: boolean) => {
     if (!currentUser) return;
 
     const today = new Date();
@@ -773,11 +773,13 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     );
     if (alreadyClockedIn) return;
 
+    const statusVal: AttendanceStatus = isWfh ? 'WFH' : 'Present';
+
     const newRecord: AttendanceRecord = {
       id: `ATT-${Date.now()}`,
       employeeId: currentUser.id,
       date: isoDate,
-      status: 'Present',
+      status: statusVal,
       clockIn: timeStr,
       clockOut: null,
       hours: 0
@@ -790,7 +792,9 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       {
         id: `notif-${Date.now()}-adm-${Math.random().toString(36).substring(2,9)}`,
         recipientId: 'admin',
-        message: `${currentUser.firstName} ${currentUser.lastName} clocked in at ${timeStr}`,
+        message: isWfh 
+          ? `${currentUser.firstName} ${currentUser.lastName} clocked in for Work From Home (WFH) at ${timeStr}`
+          : `${currentUser.firstName} ${currentUser.lastName} clocked in at ${timeStr}`,
         createdAt: new Date().toISOString(),
         read: false,
         type: 'attendance'
@@ -798,7 +802,9 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       {
         id: `notif-${Date.now()}-emp-${Math.random().toString(36).substring(2,9)}`,
         recipientId: currentUser.id,
-        message: `You clocked in successfully at ${timeStr}. Have a productive day!`,
+        message: isWfh
+          ? `You clocked in for Work From Home (WFH) at ${timeStr}. Have a productive remote work day!`
+          : `You clocked in successfully at ${timeStr}. Have a productive day!`,
         createdAt: new Date().toISOString(),
         read: false,
         type: 'attendance'
@@ -812,7 +818,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
           id: newRecord.id,
           employee_id: currentUser.id,
           date: isoDate,
-          status: 'Present',
+          status: statusVal,
           clock_in: timeStr,
           clock_out: null,
           hours: 0
