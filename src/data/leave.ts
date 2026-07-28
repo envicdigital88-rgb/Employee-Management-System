@@ -142,6 +142,7 @@ export const getDefaultLeaveQuota = (status?: string, joinDate?: string): Record
       'Parental': 0,
       'Bereavement': 0,
       'Unpaid': 30,
+      'No-Pay Sick': 365, // Probation: unlimited no-pay sick leave allowed
     };
   }
   
@@ -155,6 +156,7 @@ export const getDefaultLeaveQuota = (status?: string, joinDate?: string): Record
     'Parental': 60,
     'Bereavement': 3,
     'Unpaid': 30,
+    'No-Pay Sick': 0, // Not applicable for permanent employees
   };
 };
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useHrms } from '../store/HrmsContext';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
@@ -6,7 +6,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { KpiCard } from '../components/dashboard/KpiCard';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
-import { CalendarIcon, PlaneIcon, CheckIcon, XIcon, ShieldCheckIcon } from 'lucide-react';
+import { CalendarIcon, PlaneIcon, CheckIcon, XIcon, ShieldCheckIcon, AlertTriangleIcon, InfoIcon } from 'lucide-react';
 import { leaveStatusTone } from '../components/ui/statusMaps';
 import { LeaveType } from '../types';
 import { showToast } from '../components/ui/Toast';
@@ -15,10 +15,25 @@ const fieldClass =
   'h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm text-content placeholder:text-content-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30';
 const labelClass = 'mb-1.5 block text-xs font-medium text-content-muted';
 
+// Leave type label map for display
+const LEAVE_TYPE_LABELS: Record<string, string> = {
+  'Annual': 'Annual Leave',
+  'Casual': 'Casual Leave',
+  'Medical': 'Medical / Sick Leave',
+  'Sick': 'Sick Leave',
+  'Half Day': 'Half Day Leave (0.5 Day)',
+  'Unpaid': 'Unpaid Leave',
+  'No-Pay Sick': 'No-Pay Sick Leave (Probation)',
+  'Parental': 'Parental Leave',
+  'Bereavement': 'Bereavement Leave',
+};
+
 export function MyLeavesPage() {
   const { currentUser, leaveRequests, getLeaveBalance, applyLeave } = useHrms();
 
-  const [leaveType, setLeaveType] = useState<LeaveType>('Annual');
+  const isProbation = currentUser?.status === 'Probation';
+
+  const [leaveType, setLeaveType] = useState<LeaveType>(isProbation ? 'Half Day' : 'Annual');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [halfDaySession, setHalfDaySession] = useState<'Morning' | 'Afternoon'>('Morning');
@@ -31,14 +46,14 @@ export function MyLeavesPage() {
   if (!currentUser) return null;
 
   // Filter requests
-  const myRequests = useMemo(() => 
+  const myRequests = useMemo(() =>
     [...leaveRequests]
       .filter(l => l.employeeId === currentUser.id)
       .sort((a, b) => b.requestedOn.localeCompare(a.requestedOn)),
     [leaveRequests, currentUser.id]
   );
 
-  const balance = useMemo(() => 
+  const balance = useMemo(() =>
     getLeaveBalance(currentUser.id),
     [getLeaveBalance, currentUser.id]
   );
@@ -48,6 +63,8 @@ export function MyLeavesPage() {
   // Selected leave type remaining balance
   const selectedTypeRemaining = useMemo(() => {
     if (!allocs) return 0;
+    // No-Pay Sick is always available for probation (no quota limit)
+    if (leaveType === 'No-Pay Sick') return 999;
     const key = leaveType === 'Sick' ? 'Medical' : leaveType;
     return allocs[key]?.remaining ?? 0;
   }, [allocs, leaveType]);
@@ -61,7 +78,9 @@ export function MyLeavesPage() {
       .reduce((sum, l) => sum + l.days, 0);
 
     const totalRemainingAll = allocs
-      ? Object.values(allocs).reduce((sum, a) => sum + (a.remaining || 0), 0)
+      ? Object.entries(allocs)
+          .filter(([type]) => type !== 'No-Pay Sick') // exclude unlimited from total
+          .reduce((sum, [, a]) => sum + (a.remaining || 0), 0)
       : 0;
 
     return { pending, approved, rejected, approvedDays, totalRemainingAll };
@@ -72,7 +91,10 @@ export function MyLeavesPage() {
     setError(null);
     setSuccess(false);
 
-    if (leaveType === 'Half Day') {
+    const isHalfDay = leaveType === 'Half Day';
+    const isNoPaySick = leaveType === 'No-Pay Sick';
+
+    if (isHalfDay) {
       if (!startDate) {
         setError('Please select a date for your half day leave.');
         return;
@@ -85,7 +107,7 @@ export function MyLeavesPage() {
     }
 
     const start = new Date(startDate);
-    const end = leaveType === 'Half Day' ? start : new Date(endDate);
+    const end = isHalfDay ? start : new Date(endDate);
 
     if (end < start) {
       setError('End date cannot be before start date.');
@@ -93,31 +115,33 @@ export function MyLeavesPage() {
     }
 
     let calculatedDays = 1;
-    if (leaveType === 'Half Day') {
+    if (isHalfDay) {
       calculatedDays = 0.5;
     } else {
       const diffTime = Math.abs(end.getTime() - start.getTime());
       calculatedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     }
 
-    // Quota check validation
-    if (calculatedDays > selectedTypeRemaining) {
+    // Quota check — No-Pay Sick is always allowed for probation
+    if (!isNoPaySick && calculatedDays > selectedTypeRemaining) {
       setError(`Insufficient leave balance! You requested ${calculatedDays} day(s) but only have ${selectedTypeRemaining} day(s) remaining for ${leaveType} Leave.`);
       return;
     }
 
-    const formattedReason = leaveType === 'Half Day' 
+    const formattedReason = isHalfDay
       ? `[${halfDaySession} Half Day] ${reason}`.trim()
-      : reason;
+      : isNoPaySick
+        ? `[No-Pay Sick Leave] ${reason}`.trim()
+        : reason;
 
-    const formattedEndDate = leaveType === 'Half Day' ? startDate : endDate;
+    const formattedEndDate = isHalfDay ? startDate : endDate;
 
-    setPendingPayload({ 
-      type: leaveType, 
-      startDate, 
-      endDate: formattedEndDate, 
-      days: calculatedDays, 
-      reason: formattedReason 
+    setPendingPayload({
+      type: leaveType,
+      startDate,
+      endDate: formattedEndDate,
+      days: calculatedDays,
+      reason: formattedReason
     });
     setConfirmOpen(true);
   };
@@ -138,6 +162,34 @@ export function MyLeavesPage() {
     }
   };
 
+  // Leave type options depending on employment status
+  const leaveOptions: { value: LeaveType; label: string }[] = isProbation
+    ? [
+        { value: 'Half Day', label: 'Half Day Leave (0.5 Day) — Probation Entitlement' },
+        { value: 'No-Pay Sick', label: 'No-Pay Sick Leave — Unpaid (Probation)' },
+      ]
+    : [
+        { value: 'Annual', label: 'Annual Leave' },
+        { value: 'Casual', label: 'Casual Leave' },
+        { value: 'Medical', label: 'Medical / Sick Leave' },
+        { value: 'Half Day', label: 'Half Day Leave (0.5 Day)' },
+        { value: 'Unpaid', label: 'Unpaid Leave' },
+        { value: 'Parental', label: 'Parental Leave' },
+        { value: 'Bereavement', label: 'Bereavement Leave' },
+      ];
+
+  // Leave balance cards — probation shows Half Day + No-Pay Sick info
+  const balanceCards = isProbation
+    ? [
+        { type: 'Half Day', label: 'Half Day Leave', tone: 'amber' },
+      ]
+    : [
+        { type: 'Annual', label: 'Annual Leave', tone: 'accent' },
+        { type: 'Casual', label: 'Casual Leave', tone: 'emerald' },
+        { type: 'Medical', label: 'Medical / Sick Leave', tone: 'sky' },
+        { type: 'Half Day', label: 'Half Day Leave', tone: 'amber' },
+      ];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -145,14 +197,14 @@ export function MyLeavesPage() {
         description="View your allocated leave balances, remaining days, and request time off."
       />
 
-      {/* Sri Lanka Labour Law Notice for Probation Employees */}
-      {currentUser.status === 'Probation' ? (
+      {/* Status banner */}
+      {isProbation ? (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-xs text-amber-300 flex items-start gap-3">
           <ShieldCheckIcon className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold text-amber-200">Probationary Status — Half Day Leave Entitlement</p>
+            <p className="font-semibold text-amber-200">Probationary Status — Leave Entitlement</p>
             <p className="mt-0.5 text-amber-300/90 leading-relaxed">
-              Under Sri Lanka Labour Standards, employees on probation earn <strong>1 Half Day (0.5 Days)</strong> casual leave per month. Unused leave automatically rolls over and accumulates into subsequent months. Full annual (14d), casual (7d), and medical (14d) leave allocations will be <strong>automatically unlocked</strong> as soon as your status transitions to Permanent.
+              Under Sri Lanka Labour Standards, you earn <strong>1 Half Day (0.5 Days)</strong> leave per month on probation. Unused leave rolls over and accumulates. If you need more time off for sickness, you can apply for <strong>No-Pay Sick Leave</strong> — this is unpaid but always available. Full annual (14d), casual (7d), and medical (14d) leave accounts unlock automatically when your status changes to <strong>Permanent</strong>.
             </p>
           </div>
         </div>
@@ -197,23 +249,17 @@ export function MyLeavesPage() {
         />
       </div>
 
-      {/* Detailed Leave Accounts & Breakdown */}
+      {/* Leave Balances */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-content">Leave Account Balances (Allocated vs Remaining)</h3>
+          <h3 className="text-sm font-bold text-content">Leave Account Balances</h3>
           <span className="text-xs text-content-faint">Status: {currentUser.status}</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { type: 'Annual', label: 'Annual Leave', tone: 'accent' },
-            { type: 'Casual', label: 'Casual Leave', tone: 'emerald' },
-            { type: 'Medical', label: 'Medical / Sick Leave', tone: 'sky' },
-            { type: 'Half Day', label: 'Half Day Leave', tone: 'amber' },
-          ].map(({ type, label }) => {
+          {balanceCards.map(({ type, label }) => {
             const data = (allocs as Record<string, any>)?.[type] || { allocated: 0, used: 0, remaining: 0 };
             const pct = data.allocated > 0 ? Math.min(100, Math.round((data.used / data.allocated) * 100)) : 0;
-
             return (
               <Card key={type} className="p-4 space-y-3 relative overflow-hidden">
                 <div className="flex items-center justify-between">
@@ -222,7 +268,6 @@ export function MyLeavesPage() {
                     {data.remaining}d left
                   </Badge>
                 </div>
-
                 <div className="flex items-baseline justify-between">
                   <div>
                     <span className="text-2xl font-bold text-content">{data.remaining}</span>
@@ -230,10 +275,8 @@ export function MyLeavesPage() {
                   </div>
                   <span className="text-xs text-content-muted">{data.used} used</span>
                 </div>
-
-                {/* Progress bar */}
                 <div className="w-full h-1.5 rounded-full bg-surface-raised overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-accent transition-all duration-300"
                     style={{ width: `${pct}%` }}
                   />
@@ -241,6 +284,26 @@ export function MyLeavesPage() {
               </Card>
             );
           })}
+
+          {/* No-Pay Sick info card for probation */}
+          {isProbation && (
+            <Card className="p-4 space-y-3 relative overflow-hidden border-rose-500/20 bg-rose-500/5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-rose-400">No-Pay Sick Leave</span>
+                <Badge tone="warning">No Pay</Badge>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <AlertTriangleIcon className="h-5 w-5 text-rose-400 flex-shrink-0" />
+                <p className="text-xs text-content-muted leading-relaxed">
+                  Available when sick — salary deducted for taken days.
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-rose-400/80">
+                <InfoIcon className="h-3 w-3 flex-shrink-0" />
+                Unlimitied · No quota
+              </div>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -249,7 +312,7 @@ export function MyLeavesPage() {
         <Card className="flex flex-col h-fit">
           <CardHeader
             title="Request Time Off"
-            subtitle="Submit a new leave application"
+            subtitle={isProbation ? 'Probation: Half Day or No-Pay Sick Leave only' : 'Submit a new leave application'}
           />
 
           <form onSubmit={handleSubmit} className="space-y-4 p-5">
@@ -270,7 +333,9 @@ export function MyLeavesPage() {
                   Leave Type
                 </label>
                 <span className="text-[11px] text-accent font-medium">
-                  Available: {selectedTypeRemaining} days
+                  {leaveType === 'No-Pay Sick'
+                    ? 'No quota — always available'
+                    : `Available: ${selectedTypeRemaining} days`}
                 </span>
               </div>
               <select
@@ -279,16 +344,24 @@ export function MyLeavesPage() {
                 value={leaveType}
                 onChange={(e) => setLeaveType(e.target.value as LeaveType)}
               >
-                <option value="Casual">Casual Leave</option>
-                <option value="Half Day">Half Day Leave (0.5 Day)</option>
-                <option value="Annual">Annual Leave</option>
-                <option value="Medical">Medical / Sick Leave</option>
-                <option value="Sick">Sick Leave</option>
-                <option value="Unpaid">Unpaid Leave</option>
-                <option value="Parental">Parental Leave</option>
-                <option value="Bereavement">Bereavement Leave</option>
+                {leaveOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
               </select>
             </div>
+
+            {/* No-Pay Sick warning banner */}
+            {leaveType === 'No-Pay Sick' && (
+              <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-300 flex items-start gap-2">
+                <AlertTriangleIcon className="h-4 w-4 text-rose-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-rose-200 mb-0.5">No-Pay Leave Warning</p>
+                  <p className="text-rose-300/80 leading-relaxed">
+                    This sick leave will be <strong>unpaid</strong>. Your salary will be proportionally deducted for the number of days taken. HR admin will be notified.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {leaveType === 'Half Day' ? (
               <>
@@ -372,14 +445,22 @@ export function MyLeavesPage() {
               <textarea
                 id="reason"
                 className="w-full rounded-xl border border-line bg-surface p-3 text-sm text-content placeholder:text-content-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/30 min-h-[80px]"
-                placeholder="Brief reason for your leave request..."
+                placeholder={leaveType === 'No-Pay Sick' ? 'Describe your illness or medical condition...' : 'Brief reason for your leave request...'}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
               />
             </div>
 
-            <Button type="submit" variant="primary" className="w-full h-10">
-              Submit Request {leaveType === 'Half Day' ? '(0.5 Day)' : ''}
+            <Button
+              type="submit"
+              variant="primary"
+              className={`w-full h-10 ${leaveType === 'No-Pay Sick' ? 'bg-rose-600 hover:bg-rose-500' : ''}`}
+            >
+              {leaveType === 'Half Day'
+                ? 'Submit Half Day Request (0.5 Day)'
+                : leaveType === 'No-Pay Sick'
+                  ? 'Submit No-Pay Sick Leave Request'
+                  : 'Submit Leave Request'}
             </Button>
           </form>
         </Card>
@@ -413,7 +494,14 @@ export function MyLeavesPage() {
                   myRequests.map((l) => (
                     <tr key={l.id} className="hover:bg-white/[0.01]">
                       <td className="px-5 py-3 text-xs text-content font-semibold">
-                        {l.type} Leave
+                        <div className="flex items-center gap-1.5">
+                          {l.type === 'No-Pay Sick' && (
+                            <span className="inline-flex items-center rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-rose-400">
+                              NO PAY
+                            </span>
+                          )}
+                          {LEAVE_TYPE_LABELS[l.type] || `${l.type} Leave`}
+                        </div>
                       </td>
                       <td className="px-5 py-3 text-xs text-content-muted">
                         {l.startDate} {l.startDate !== l.endDate ? `to ${l.endDate}` : ''}
@@ -438,9 +526,13 @@ export function MyLeavesPage() {
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         onConfirm={confirmSubmit}
-        title="Submit Leave Request"
-        message={pendingPayload ? `You are about to submit a ${pendingPayload.type} leave request for ${pendingPayload.startDate} ${pendingPayload.startDate !== pendingPayload.endDate ? `to ${pendingPayload.endDate}` : ''} (${pendingPayload.days} day${pendingPayload.days !== 1 ? 's' : ''}). This request will be sent to your HR admin for review.` : ''}
-        confirmText="Submit Request"
+        title={pendingPayload?.type === 'No-Pay Sick' ? 'Submit No-Pay Sick Leave' : 'Submit Leave Request'}
+        message={pendingPayload
+          ? pendingPayload.type === 'No-Pay Sick'
+            ? `You are about to submit a No-Pay Sick Leave request for ${pendingPayload.startDate}${pendingPayload.startDate !== pendingPayload.endDate ? ` to ${pendingPayload.endDate}` : ''} (${pendingPayload.days} day${pendingPayload.days !== 1 ? 's' : ''}). ⚠️ This leave is UNPAID — your salary will be deducted proportionally. This request will be reviewed by HR admin.`
+            : `You are about to submit a ${pendingPayload.type} leave request for ${pendingPayload.startDate} ${pendingPayload.startDate !== pendingPayload.endDate ? `to ${pendingPayload.endDate}` : ''} (${pendingPayload.days} day${pendingPayload.days !== 1 ? 's' : ''}). This request will be sent to your HR admin for review.`
+          : ''}
+        confirmText={pendingPayload?.type === 'No-Pay Sick' ? 'Submit (Unpaid)' : 'Submit Request'}
         variant="primary"
       />
     </div>

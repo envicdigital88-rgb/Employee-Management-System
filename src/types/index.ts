@@ -71,6 +71,7 @@ export type LeaveType =
   | 'Sick'
   | 'Half Day'
   | 'Unpaid'
+  | 'No-Pay Sick'
   | 'Parental'
   | 'Bereavement';
 

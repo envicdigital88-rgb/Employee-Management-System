@@ -1735,6 +1735,7 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
         'Sick',
         'Half Day',
         'Unpaid',
+        'No-Pay Sick',
         'Parental',
         'Bereavement',
       ];

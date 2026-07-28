@@ -7,7 +7,6 @@ import {
   SlidersIcon, 
   Edit3Icon, 
   SearchIcon, 
-  RefreshCwIcon,
   InfoIcon,
   UserCheckIcon
 } from 'lucide-react';
@@ -228,7 +227,14 @@ export function LeavePage() {
                       </div>
                       <div className="flex items-center gap-4 sm:flex-col sm:items-end">
                         <div className="text-right">
-                          <Badge tone="neutral">{l.type}</Badge>
+                          <div className="flex items-center gap-1.5 justify-end">
+                            {l.type === 'No-Pay Sick' && (
+                              <span className="inline-flex items-center rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-bold text-rose-400">
+                                NO PAY
+                              </span>
+                            )}
+                            <Badge tone="neutral">{l.type}</Badge>
+                          </div>
                           <p className="mt-1 text-xs text-content-muted">
                             {formatDate(l.startDate)} – {formatDate(l.endDate)} · {l.days}d
                           </p>
