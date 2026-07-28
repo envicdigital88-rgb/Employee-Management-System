@@ -70,7 +70,7 @@ export function AttendancePage() {
 
       return true;
     });
-  }, [dateType, singleDate, startDate, endDate, dept, statusFilter, shiftFilter, searchQuery, employees, attendanceRecords, getEmployee]);
+  }, [dateType, singleDate, startDate, endDate, dept, statusFilter, searchQuery, employees, attendanceRecords, getEmployee]);
 
   const summary = useMemo(() => {
     let present = 0;
