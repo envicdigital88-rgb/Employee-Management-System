@@ -162,11 +162,15 @@ export function MyLeavesPage() {
       setStartDate('');
       setEndDate('');
       setReason('');
+      setPendingPayload(null);
+      setConfirmOpen(false);
       showToast('Leave request submitted successfully!', 'success');
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
       setError(err.message || 'Failed to submit leave request.');
       showToast('Failed to submit leave request.', 'error');
+      setPendingPayload(null);
+      setConfirmOpen(false);
     }
   };
 

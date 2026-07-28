@@ -85,7 +85,7 @@ CREATE TABLE leave_requests (
   type VARCHAR(50) NOT NULL,
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
-  days INT NOT NULL,
+  days NUMERIC(5,1) NOT NULL,
   reason TEXT NOT NULL,
   status VARCHAR(50) NOT NULL,
   requested_on DATE NOT NULL
@@ -596,3 +596,6 @@ ALTER TABLE activity_feed DISABLE ROW LEVEL SECURITY;
 -- Set admin flags for seeded administrators
 UPDATE employees SET is_admin = TRUE WHERE id IN ('EMP-1000', 'EMP-1001', 'EMP-1030');
 
+-- ─── MIGRATION: Support fractional leave days (half-day = 0.5) ────────────────
+-- Run this on existing databases to allow half-day leave values
+ALTER TABLE leave_requests ALTER COLUMN days TYPE NUMERIC(5,1);
