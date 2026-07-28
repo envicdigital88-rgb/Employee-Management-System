@@ -37,6 +37,7 @@ export function MyLeavesPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [halfDaySession, setHalfDaySession] = useState<'Morning' | 'Afternoon'>('Morning');
+  const [noPaySickDuration, setNoPaySickDuration] = useState<'Full Day' | 'Half Day'>('Full Day');
   const [reason, setReason] = useState('');
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,29 +94,32 @@ export function MyLeavesPage() {
 
     const isHalfDay = leaveType === 'Half Day';
     const isNoPaySick = leaveType === 'No-Pay Sick';
+    const isNoPaySickHalfDay = isNoPaySick && noPaySickDuration === 'Half Day';
+    // Treat as single-date picker when half day (either type)
+    const isSingleDate = isHalfDay || isNoPaySickHalfDay;
 
-    if (isHalfDay) {
+    if (isSingleDate) {
       if (!startDate) {
-        setError('Please select a date for your half day leave.');
+        setError('Please select a date for your leave.');
         return;
       }
     } else {
-      if (!startDate || !endDate) {
+      if (!startDate || (!isNoPaySick && !endDate) || (isNoPaySick && !endDate)) {
         setError('Please select both start and end dates.');
         return;
       }
     }
 
     const start = new Date(startDate);
-    const end = isHalfDay ? start : new Date(endDate);
+    const end = isSingleDate ? start : new Date(endDate);
 
     if (end < start) {
       setError('End date cannot be before start date.');
       return;
     }
 
-    let calculatedDays = 1;
-    if (isHalfDay) {
+    let calculatedDays: number;
+    if (isHalfDay || isNoPaySickHalfDay) {
       calculatedDays = 0.5;
     } else {
       const diffTime = Math.abs(end.getTime() - start.getTime());
@@ -128,13 +132,17 @@ export function MyLeavesPage() {
       return;
     }
 
-    const formattedReason = isHalfDay
-      ? `[${halfDaySession} Half Day] ${reason}`.trim()
-      : isNoPaySick
-        ? `[No-Pay Sick Leave] ${reason}`.trim()
-        : reason;
+    let formattedReason: string;
+    if (isHalfDay) {
+      formattedReason = `[${halfDaySession} Half Day] ${reason}`.trim();
+    } else if (isNoPaySick) {
+      const durationLabel = isNoPaySickHalfDay ? `${halfDaySession} Half Day` : 'Full Day(s)';
+      formattedReason = `[No-Pay Sick — ${durationLabel}] ${reason}`.trim();
+    } else {
+      formattedReason = reason;
+    }
 
-    const formattedEndDate = isHalfDay ? startDate : endDate;
+    const formattedEndDate = isSingleDate ? startDate : endDate;
 
     setPendingPayload({
       type: leaveType,
@@ -350,17 +358,48 @@ export function MyLeavesPage() {
               </select>
             </div>
 
-            {/* No-Pay Sick warning banner */}
+            {/* No-Pay Sick warning banner + duration toggle */}
             {leaveType === 'No-Pay Sick' && (
-              <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-300 flex items-start gap-2">
-                <AlertTriangleIcon className="h-4 w-4 text-rose-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-rose-200 mb-0.5">No-Pay Leave Warning</p>
-                  <p className="text-rose-300/80 leading-relaxed">
-                    This sick leave will be <strong>unpaid</strong>. Your salary will be proportionally deducted for the number of days taken. HR admin will be notified.
-                  </p>
+              <>
+                <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-300 flex items-start gap-2">
+                  <AlertTriangleIcon className="h-4 w-4 text-rose-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-rose-200 mb-0.5">No-Pay Leave Warning</p>
+                    <p className="text-rose-300/80 leading-relaxed">
+                      This sick leave will be <strong>unpaid</strong>. Your salary will be proportionally deducted for the number of days taken. HR admin will be notified.
+                    </p>
+                  </div>
                 </div>
-              </div>
+
+                {/* Half Day / Full Day toggle for No-Pay Sick */}
+                <div>
+                  <label className={labelClass}>Duration</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setNoPaySickDuration('Full Day'); setEndDate(''); }}
+                      className={`h-9 rounded-xl border text-xs font-semibold transition-colors ${
+                        noPaySickDuration === 'Full Day'
+                          ? 'border-rose-500/60 bg-rose-500/15 text-rose-300'
+                          : 'border-line bg-surface text-content-muted hover:text-content'
+                      }`}
+                    >
+                      Full Day(s)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setNoPaySickDuration('Half Day'); setEndDate(''); }}
+                      className={`h-9 rounded-xl border text-xs font-semibold transition-colors ${
+                        noPaySickDuration === 'Half Day'
+                          ? 'border-rose-500/60 bg-rose-500/15 text-rose-300'
+                          : 'border-line bg-surface text-content-muted hover:text-content'
+                      }`}
+                    >
+                      Half Day (0.5)
+                    </button>
+                  </div>
+                </div>
+              </>
             )}
 
             {leaveType === 'Half Day' ? (
@@ -401,6 +440,52 @@ export function MyLeavesPage() {
                       className={`h-9 rounded-xl border text-xs font-semibold transition-colors ${
                         halfDaySession === 'Afternoon'
                           ? 'border-accent bg-accent/10 text-accent'
+                          : 'border-line bg-surface text-content-muted hover:text-content'
+                      }`}
+                    >
+                      Afternoon Session
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : leaveType === 'No-Pay Sick' && noPaySickDuration === 'Half Day' ? (
+              <>
+                <div>
+                  <label className={labelClass} htmlFor="nopay_half_day_date">
+                    Leave Date (Half Day)
+                  </label>
+                  <input
+                    id="nopay_half_day_date"
+                    type="date"
+                    className={fieldClass}
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      setEndDate(e.target.value);
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Half Day Session</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setHalfDaySession('Morning')}
+                      className={`h-9 rounded-xl border text-xs font-semibold transition-colors ${
+                        halfDaySession === 'Morning'
+                          ? 'border-rose-500/60 bg-rose-500/15 text-rose-300'
+                          : 'border-line bg-surface text-content-muted hover:text-content'
+                      }`}
+                    >
+                      Morning Session
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHalfDaySession('Afternoon')}
+                      className={`h-9 rounded-xl border text-xs font-semibold transition-colors ${
+                        halfDaySession === 'Afternoon'
+                          ? 'border-rose-500/60 bg-rose-500/15 text-rose-300'
                           : 'border-line bg-surface text-content-muted hover:text-content'
                       }`}
                     >
@@ -459,7 +544,7 @@ export function MyLeavesPage() {
               {leaveType === 'Half Day'
                 ? 'Submit Half Day Request (0.5 Day)'
                 : leaveType === 'No-Pay Sick'
-                  ? 'Submit No-Pay Sick Leave Request'
+                  ? `Submit No-Pay Sick Leave (${noPaySickDuration === 'Half Day' ? '0.5 Day — Unpaid' : 'Full Day(s) — Unpaid'})`
                   : 'Submit Leave Request'}
             </Button>
           </form>
@@ -529,7 +614,7 @@ export function MyLeavesPage() {
         title={pendingPayload?.type === 'No-Pay Sick' ? 'Submit No-Pay Sick Leave' : 'Submit Leave Request'}
         message={pendingPayload
           ? pendingPayload.type === 'No-Pay Sick'
-            ? `You are about to submit a No-Pay Sick Leave request for ${pendingPayload.startDate}${pendingPayload.startDate !== pendingPayload.endDate ? ` to ${pendingPayload.endDate}` : ''} (${pendingPayload.days} day${pendingPayload.days !== 1 ? 's' : ''}). ⚠️ This leave is UNPAID — your salary will be deducted proportionally. This request will be reviewed by HR admin.`
+            ? `You are about to submit a No-Pay Sick Leave request for ${pendingPayload.startDate}${pendingPayload.startDate !== pendingPayload.endDate ? ` to ${pendingPayload.endDate}` : ''} (${pendingPayload.days} day${pendingPayload.days !== 1 ? 's' : ''}). ⚠️ This leave is UNPAID — your salary will be deducted proportionally for ${pendingPayload.days === 0.5 ? 'half a day' : `${pendingPayload.days} day(s)`}. HR admin will review your request.`
             : `You are about to submit a ${pendingPayload.type} leave request for ${pendingPayload.startDate} ${pendingPayload.startDate !== pendingPayload.endDate ? `to ${pendingPayload.endDate}` : ''} (${pendingPayload.days} day${pendingPayload.days !== 1 ? 's' : ''}). This request will be sent to your HR admin for review.`
           : ''}
         confirmText={pendingPayload?.type === 'No-Pay Sick' ? 'Submit (Unpaid)' : 'Submit Request'}
