@@ -228,7 +228,7 @@ export function LeavePage() {
                       <div className="flex items-center gap-4 sm:flex-col sm:items-end">
                         <div className="text-right">
                           <div className="flex items-center gap-1.5 justify-end">
-                            {l.type === 'No-Pay Sick' && (
+                            {(l.type === 'No-Pay Sick' || l.type === 'Unpaid') && (
                               <span className="inline-flex items-center rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-bold text-rose-400">
                                 NO PAY
                               </span>
