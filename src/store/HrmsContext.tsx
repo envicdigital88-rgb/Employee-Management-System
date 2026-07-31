@@ -192,6 +192,7 @@ const mapAttendanceFromDb = (a: any): AttendanceRecord => ({
   clockIn: a.clock_in,
   clockOut: a.clock_out,
   hours: Number(a.hours),
+  breaks: a.breaks || undefined,
 });
 
 const mapPayrollFromDb = (p: any): PayrollRecord => ({
@@ -910,7 +911,8 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
       try {
         const { error } = await supabase.from('attendance_records').update({
           clock_out: timeStr,
-          hours
+          hours,
+          breaks: breaksList
         }).eq('id', todayRecord.id);
         if (error) console.error('Failed to save clock-out in database:', error);
       } catch (err) {
@@ -978,6 +980,18 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     const updatedRecord = { ...todayRecord, breaks: updatedBreaks };
 
     setAttendanceRecords(prev => prev.map(r => r.id === todayRecord.id ? updatedRecord : r));
+
+    if (isLive && supabase) {
+      try {
+        const { error } = await supabase.from('attendance_records').update({
+          breaks: updatedBreaks
+        }).eq('id', todayRecord.id);
+        if (error) console.error('Failed to save break in database:', error);
+      } catch (err) {
+        console.error('Network error saving break:', err);
+      }
+    }
+
     showToast(`Break started at ${timeStr}`, 'success');
   }, [currentUser, departments, attendanceRecords]);
 
@@ -1016,6 +1030,18 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
     const updatedRecord = { ...todayRecord, breaks: updatedBreaks };
 
     setAttendanceRecords(prev => prev.map(r => r.id === todayRecord.id ? updatedRecord : r));
+
+    if (isLive && supabase) {
+      try {
+        const { error } = await supabase.from('attendance_records').update({
+          breaks: updatedBreaks
+        }).eq('id', todayRecord.id);
+        if (error) console.error('Failed to save break in database:', error);
+      } catch (err) {
+        console.error('Network error saving break:', err);
+      }
+    }
+
     showToast(`Break ended at ${timeStr} (${duration} mins)`, 'success');
   }, [currentUser, attendanceRecords]);
 
