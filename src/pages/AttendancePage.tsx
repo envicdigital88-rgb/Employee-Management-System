@@ -240,9 +240,13 @@ export function AttendancePage() {
                     <td className="px-5 py-3 text-content-muted">{r.clockOut ?? '—'}</td>
                     <td className="px-5 py-3 text-content-muted text-xs">
                       {breakCount > 0 ? (
-                        <span className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded font-medium">
-                          ☕ {breakCount} break{breakCount > 1 ? 's' : ''}
-                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {r.breaks!.map((b, idx) => (
+                            <span key={b.id || idx} className="bg-surface-raised px-2 py-0.5 rounded border border-line text-[11px] text-amber-300 font-mono whitespace-nowrap">
+                              ☕ {b.startTime} - {b.endTime || 'Ongoing'} {b.durationMinutes ? `(${b.durationMinutes}m)` : ''}
+                            </span>
+                          ))}
+                        </div>
                       ) : (
                         <span className="text-content-faint">—</span>
                       )}
