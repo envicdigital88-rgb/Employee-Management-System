@@ -599,3 +599,6 @@ UPDATE employees SET is_admin = TRUE WHERE id IN ('EMP-1000', 'EMP-1001', 'EMP-1
 -- ─── MIGRATION: Support fractional leave days (half-day = 0.5) ────────────────
 -- Run this on existing databases to allow half-day leave values
 ALTER TABLE leave_requests ALTER COLUMN days TYPE NUMERIC(5,1);
+
+-- ─── MIGRATION: Support persisting shift break times ──────────────────────────
+ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS breaks JSONB DEFAULT '[]'::jsonb;
