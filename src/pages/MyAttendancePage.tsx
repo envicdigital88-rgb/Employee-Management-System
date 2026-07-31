@@ -15,6 +15,11 @@ export function MyAttendancePage() {
   const [workLocation, setWorkLocation] = useState<'office' | 'wfh'>('office');
   const [confirmClockIn, setConfirmClockIn] = useState(false);
   const [confirmClockOut, setConfirmClockOut] = useState(false);
+  
+  const [dateType, setDateType] = useState<'all' | 'single' | 'range'>('all');
+  const [singleDate, setSingleDate] = useState(todayISO);
+  const [startDate, setStartDate] = useState(todayISO);
+  const [endDate, setEndDate] = useState(todayISO);
 
   if (!currentUser) return null;
 
@@ -24,14 +29,24 @@ export function MyAttendancePage() {
   // Filter logs for this employee
   const myAttendance = useMemo(() => 
     [...attendanceRecords]
-      .filter(a => a.employeeId === currentUser.id)
+      .filter(a => {
+        if (a.employeeId !== currentUser.id) return false;
+        
+        if (dateType === 'single') {
+          if (a.date !== singleDate) return false;
+        } else if (dateType === 'range') {
+          if (a.date < startDate || a.date > endDate) return false;
+        }
+        
+        return true;
+      })
       .sort((a, b) => b.date.localeCompare(a.date)),
-    [attendanceRecords, currentUser.id]
+    [attendanceRecords, currentUser.id, dateType, singleDate, startDate, endDate]
   );
 
   const todayRecord = useMemo(() => 
-    myAttendance.find(a => a.date === todayISO),
-    [myAttendance]
+    attendanceRecords.find(a => a.employeeId === currentUser.id && a.date === todayISO),
+    [attendanceRecords, currentUser.id]
   );
 
   return (
@@ -141,9 +156,39 @@ export function MyAttendancePage() {
 
         {/* History List Card */}
         <Card className="lg:col-span-2 flex flex-col min-h-[300px]">
-          <div className="p-5 border-b border-line">
-            <h3 className="text-sm font-bold text-content">Shift History</h3>
-            <p className="text-xs text-content-faint mt-0.5">Logs of your attendance records</p>
+          <div className="p-5 border-b border-line flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-bold text-content">Shift History</h3>
+              <p className="text-xs text-content-faint mt-0.5">Logs of your attendance records</p>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="w-32">
+                <select className="h-9 w-full rounded-xl border border-line bg-surface px-3 text-xs text-content focus:border-accent/50 focus:outline-none" value={dateType} onChange={(e) => setDateType(e.target.value as 'all' | 'single' | 'range')}>
+                  <option value="all">All Time</option>
+                  <option value="single">Single Date</option>
+                  <option value="range">Date Range</option>
+                </select>
+              </div>
+
+              {dateType === 'single' && (
+                <div className="w-36">
+                  <input type="date" className="h-9 w-full rounded-xl border border-line bg-surface px-2 text-xs text-content focus:border-accent/50 focus:outline-none" value={singleDate} onChange={(e) => setSingleDate(e.target.value)} />
+                </div>
+              )}
+              
+              {dateType === 'range' && (
+                <div className="flex items-center gap-2">
+                  <div className="w-32">
+                    <input type="date" className="h-9 w-full rounded-xl border border-line bg-surface px-2 text-xs text-content focus:border-accent/50 focus:outline-none" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                  </div>
+                  <span className="text-content-faint text-xs">to</span>
+                  <div className="w-32">
+                    <input type="date" className="h-9 w-full rounded-xl border border-line bg-surface px-2 text-xs text-content focus:border-accent/50 focus:outline-none" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex-1 overflow-x-auto">
