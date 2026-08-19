@@ -637,55 +637,146 @@ export function HrmsProvider({ children }: { children: ReactNode }) {
   }, [clearSessionTimers, startSessionTimers]);
 
 
-  // Auth Operations
   const login = useCallback(async (email: string, password: string) => {
-    const searchEmail = email.trim().toLowerCase();
-    
-    // Check if employee exists first in the local cache
-    const foundEmployee = employees.find(e => e.email.toLowerCase() === searchEmail);
-    if (!foundEmployee) {
-      throw new Error('This email is not registered in our employee database.');
-    }
-    if (!isAccountActive(foundEmployee)) {
-      throw new Error('Your account has been deactivated. Please contact HR for assistance.');
-    }
+  const searchEmail = email.trim().toLowerCase();
 
-    const tempPw = tempPasswords[searchEmail];
+  // ─────────────────────────────────────────────
+  // LIVE SUPABASE MODE
+  // ─────────────────────────────────────────────
+  if (isLive && supabase) {
 
-    if (tempPw) {
-      if (password !== tempPw) {
-        throw new Error('Invalid email or password. Please check your login credentials.');
-      }
-      // Temporary password matched!
-      setCurrentUser(foundEmployee);
-      window.sessionStorage.setItem('DEMO_USER_EMAIL', foundEmployee.email);
-      if (isLive && supabase) {
-        try {
-          await supabase.auth.signInWithPassword({
-            email: searchEmail,
-            password
-          });
-        } catch (e) {
-          // Supabase auth fallback if email confirmation is enabled
-        }
-      }
-      return;
-    }
-
-    if (isLive && supabase) {
-      const { error } = await supabase.auth.signInWithPassword({
+    // 1. Authenticate with Supabase Auth FIRST
+    const { data: authData, error: authError } =
+      await supabase.auth.signInWithPassword({
         email: searchEmail,
         password
       });
-      if (error) throw error;
-      setCurrentUser(foundEmployee);
-      window.sessionStorage.setItem('DEMO_USER_EMAIL', foundEmployee.email);
-    } else {
-      // Demo Mode login
-      setCurrentUser(foundEmployee);
-      window.sessionStorage.setItem('DEMO_USER_EMAIL', foundEmployee.email);
+
+    if (authError) {
+      throw authError;
     }
-  }, [employees, isLive, tempPasswords]);
+
+    if (!authData.user) {
+      throw new Error('Unable to authenticate user.');
+    }
+
+    // 2. Find the employee using EMAIL
+    //    NOT employees.id = auth.uid()
+    const { data: employeeRow, error: employeeError } =
+      await supabase
+        .from('employees')
+        .select('*')
+        .eq('email', searchEmail)
+        .maybeSingle();
+
+    if (employeeError) {
+      console.error('Employee lookup error:', employeeError);
+
+      // Sign out because authentication succeeded but
+      // employee profile could not be loaded.
+      await supabase.auth.signOut();
+
+      throw new Error(
+        `Unable to load employee profile: ${employeeError.message}`
+      );
+    }
+
+    if (!employeeRow) {
+      await supabase.auth.signOut();
+
+      throw new Error(
+        'This email is not registered in our employee database.'
+      );
+    }
+
+    // 3. Convert database employee → application employee
+    const employee = mapEmployeeFromDb(employeeRow);
+
+    // 4. Check whether employee is active
+    if (!isAccountActive(employee)) {
+      await supabase.auth.signOut();
+
+      throw new Error(
+        'Your account has been deactivated. Please contact HR for assistance.'
+      );
+    }
+
+    // 5. Set logged-in employee
+    setCurrentUser(employee);
+
+    // 6. Keep local application state synchronized
+    setEmployees(prev => {
+      const exists = prev.some(e => e.id === employee.id);
+
+      if (exists) {
+        return prev.map(e =>
+          e.id === employee.id ? employee : e
+        );
+      }
+
+      return [employee, ...prev];
+    });
+
+    window.sessionStorage.setItem(
+      'DEMO_USER_EMAIL',
+      employee.email
+    );
+
+    console.log('Login successful:', {
+      email: employee.email,
+      employeeId: employee.id,
+      isAdmin: employee.isAdmin
+    });
+
+    return;
+  }
+
+  // ─────────────────────────────────────────────
+  // DEMO MODE
+  // ─────────────────────────────────────────────
+
+  const foundEmployee = employees.find(
+    e => e.email.toLowerCase() === searchEmail
+  );
+
+  if (!foundEmployee) {
+    throw new Error(
+      'This email is not registered in our employee database.'
+    );
+  }
+
+  if (!isAccountActive(foundEmployee)) {
+    throw new Error(
+      'Your account has been deactivated. Please contact HR for assistance.'
+    );
+  }
+
+  const tempPw = tempPasswords[searchEmail];
+
+  if (tempPw) {
+    if (password !== tempPw) {
+      throw new Error(
+        'Invalid email or password. Please check your login credentials.'
+      );
+    }
+
+    setCurrentUser(foundEmployee);
+
+    window.sessionStorage.setItem(
+      'DEMO_USER_EMAIL',
+      foundEmployee.email
+    );
+
+    return;
+  }
+
+  setCurrentUser(foundEmployee);
+
+  window.sessionStorage.setItem(
+    'DEMO_USER_EMAIL',
+    foundEmployee.email
+  );
+}, [employees, isLive, tempPasswords]);
 
   const signup = useCallback(async (email: string, password: string) => {
     const searchEmail = email.trim().toLowerCase();
